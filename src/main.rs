@@ -138,9 +138,12 @@ fn top_highscores(path: &str) -> Vec<String> {
     return result;
 }
 
-fn quit_or_die() {
+fn quit_now() {
     // Just a clean up function
     execute!(io::stdout(), Show).unwrap();
+    // Exit the application
+    println!("");
+    std::process::exit(0);
 }
 
 
@@ -256,10 +259,11 @@ fn draw_boundaries(player: &Player) {
 
 }
 
-fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>, game_state: &mut Game_State, game_board_data: &Vec<Vec<i32>>) -> bool {
+fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>, game_state: &mut Game_State, game_board_data: &Vec<Vec<i32>>) -> (bool, bool) {
     enable_raw_mode().expect("Failed to enable raw mode");
 
     let mut legal_move = false;
+    let mut quit = false;
 
     match read().expect("Failed to read event") {
         Event::Key(event) => {
@@ -274,10 +278,10 @@ fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>, game_state: &mut 
                         'b' => { legal_move = move_player(player, -1, 1, game_state, game_board_data); },      // Move diagonally down and left
                         'j' => { legal_move = move_player(player, 0, 1, game_state, game_board_data); },       // Nove down
                         'n' => { legal_move = move_player(player, 1, 1, game_state, game_board_data); },       // Move diagonally down and right
-                        'q' => { player.is_alive = false; legal_move = false; },        // Quit the game (needs function)
-                        's' => { teleport_player(true, player, robots.clone()); legal_move = true; },   // Safe teleport
-                        't' => { teleport_player(false, player, robots.clone()); legal_move = true; }   // Teleport
-                        'w' => { game_state.wait_for_end = true; legal_move = true; },  // Wait until robots are gone, or player is dead
+                        'q' => { player.is_alive = false; legal_move = false; quit = true; },                  // Quit the game (needs function)
+                        's' => { teleport_player(true, player, robots.clone()); legal_move = true; },          // Safe teleport
+                        't' => { teleport_player(false, player, robots.clone()); legal_move = true; }          // Teleport
+                        'w' => { game_state.wait_for_end = true; legal_move = true; },                         // Wait until robots are gone, or player is dead
                         '.' => legal_move = true,   // Wait
                         _ => legal_move = false     // Do nothing
                     }
@@ -289,7 +293,7 @@ fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>, game_state: &mut 
     }
 
     disable_raw_mode().expect("Failed to disable raw mode");    
-    legal_move
+    (legal_move, quit)
 }
 
 fn move_player(player: &mut Player, d_pos_x: i32, d_pos_y: i32, game_state: &mut Game_State, game_board_data: &Vec<Vec<i32>>) -> bool {
@@ -376,6 +380,18 @@ fn game_tick(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps:
 }
 
 fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<Dumb_Robot>) {
+    // Because Andreas said so.. We need a prompt to tell people that they are teleporting..
+    // execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
+    execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
+    execute!(io::stdout(), Hide).expect("Failed to hide cursor");
+
+    //execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
+    execute!(io::stdout(), MoveTo(BOARD_WIDTH as u16 + 4, BOARD_HEIGHT as u16 + 4)).unwrap();
+    print!("Teleporting..");
+
+    // Sleep for 200ms
+    std::thread::sleep(std::time::Duration::from_millis(2000));
+
 
     let mut safe_teleport = false;
     // Check if the player has any safe teleports left
@@ -411,6 +427,7 @@ fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<Dumb_Ro
         player.pos_x = new_x;
         player.pos_y = new_y;
     }
+    enable_raw_mode().expect("Failed to enable raw mode");
 }
 
 fn any_robots_left(robots: &Vec<Dumb_Robot>) -> bool {
@@ -464,8 +481,12 @@ fn main() {
             draw_boundaries(&player);
             draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
             if !game_state.wait_for_end {
-                if player_input(&mut player, &dumb_robots, &mut game_state, &game_board_data) {
+                let (legal_move, quit) = player_input(&mut player, &dumb_robots, &mut game_state, &game_board_data);
+                if legal_move {
                     game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
+                }
+                if quit {
+                    quit_now();
                 }
             }
             else {
@@ -480,18 +501,68 @@ fn main() {
                 // Increase the level (and perhaps write something)
                 game_state.level += 1;
                 generate_level(&game_state, &mut game_board_data, &mut dumb_robots, &mut junk_heaps, &mut player);
-            }
+            }   
         }
     }
 
+    // All is over.. Present the retry prompt..
+    game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
     draw_boundaries(&player);
     draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
 
+    if retry_query() {
+        main();
+    }
+    else {
+        quit_now();
+        std::process::exit(0);
+    }
+
+
+    //draw_boundaries(&player);
+    //draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
+
     // Just to clean up stuff..
-    execute!(io::stdout(), Show).unwrap();
-    println!("");
+    quit_now();
 
     // add_dummy_score(&args.username, &args.path)
+}
+
+// Retry function takes either a y/n input and returns a boolean
+fn retry_query() -> bool {
+    execute!(io::stdout(), MoveTo(BOARD_WIDTH as u16 + 7, PADDING_TOP as u16 + BOARD_HEIGHT as u16)).unwrap();
+    print!("Do you want to try again? (y/n) ");
+
+    // Sleep for a 1000ms
+
+    let mut try_again = false;
+    io::stdout().flush().unwrap();
+
+    enable_raw_mode().expect("Failed to enable raw mode");
+
+    match read().expect("Failed to read event") {
+        Event::Key(event) => {
+            match event.code {
+                KeyCode::Char(c) => {
+                    match c {
+                        'y' => try_again = true,    // We want to retry
+                        'Y' => try_again = true,    // We want to retry (should caps lock be initiated)
+                        'n' => try_again = false,   // We do not want to retry
+                        'N' => try_again = false,   // We do not want to retry (should caps lock be initiated)
+                        _ => { try_again = true; () }
+                    }
+                },
+                _ => ()
+            }
+        },
+        _ => try_again = false
+    }
+
+    disable_raw_mode().expect("Failed to disable raw mode");
+
+    execute!(io::stdout(), MoveTo(BOARD_WIDTH as u16 + 4, BOARD_HEIGHT as u16 + 4)).unwrap();
+
+    try_again
 }
 
 // Generate level
