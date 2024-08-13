@@ -164,63 +164,40 @@ fn draw_boundaries(player: &Player) {
     let terminal = Term::stdout(); 
     terminal.clear_screen().unwrap();
     
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize).unwrap();
-    println!("Directions:");
+    let menu = vec![
+        "Directions:",
+        "",
+        "y k u",
+        " \\|/",
+        "h- -l",
+        " /|\\",
+        "b j n",
+        "",
+        "Commands:",
+        "",
+        "w:  wait for end",
+        "t:  teleport",
+        "s:  safe teleport! (3)",
+        "^L: redraw screen",
+        "q:  quit",
+        "",
+        "Legend:",
+        "",
+        "+:  robot",
+        "&:  super robot",
+        "N:  killer robot",
+        "*   junk heap",
+        "@:  you",
+        "",
+        "Score:  0",
+    ];
+    for (i, line) in menu.iter().enumerate() {
+        terminal
+            .move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + i)
+            .unwrap(); // Adjusted for 0-based indexing
+        print!("{}", line);
+    }
 
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 2).unwrap();
-    println!("y k u");
-
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 3).unwrap();
-    println!(" \\|/");
-
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 4).unwrap();
-    println!("h- -l");
-
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 5).unwrap();
-    println!("/ | \\");
-
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 6).unwrap();
-    println!("b j n");
-
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 8).unwrap();
-    println!("Commands:");
-
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 10).unwrap();
-    println!("w:  wait for end");
-   
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 11).unwrap();
-    println!("t:  teleport");
- 
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 12).unwrap();
-    println!("s:  safe teleport! ({})", player.safe_teleports);
-
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 13).unwrap();
-    println!("^L: redraw screen");
-
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 14).unwrap();
-    println!("q:  quit");
-    
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 16).unwrap();
-    println!("Legend:");
-
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 18).unwrap();
-    println!("+:  robot");
-
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 19).unwrap();
-    println!("&:  super robot");
-
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 20).unwrap();
-    println!("N:  killer robot");
-
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 21).unwrap();
-    println!("*   junk heap");
-
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 22).unwrap();
-    println!("@:  you");
-
-    terminal.move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + 24).unwrap(); 
-    println!("Score:  0");
-   
     terminal.move_cursor_to(0, 0).unwrap();
 
     print!("{}", "\n".repeat(PADDING_TOP as usize));
