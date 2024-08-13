@@ -12,7 +12,6 @@ use crossterm::{
 const PADDING_LEFT: i32 = 3;
 const PADDING_TOP: i32 = 1;
 
-// TODO: Use these variables..
 const BOARD_WIDTH: i32 = 60;
 const BOARD_HEIGHT : i32 = 24;
 
@@ -40,6 +39,7 @@ struct Dumb_Robot {
     id: i32,
 }
 
+#[derive(Clone)]
 struct Junk_Heap {
     pos_x: i32,
     pos_y: i32
@@ -137,6 +137,11 @@ fn top_highscores(path: &str) -> Vec<String> {
     return result;
 }
 
+fn quit_or_die() {
+    // Just a clean up function
+    execute!(io::stdout(), Show).unwrap();
+}
+
 
 fn draw_active_objects(player: &Player, dumb_robots: &Vec<Dumb_Robot>, junk_heaps: &Vec<Junk_Heap>) {
     // Draw the player
@@ -157,8 +162,19 @@ fn draw_active_objects(player: &Player, dumb_robots: &Vec<Dumb_Robot>, junk_heap
         print!("#");
     }
 
-    execute!(io::stdout(), MoveTo(0, PADDING_TOP as u16 + BOARD_HEIGHT as u16 + 3)).unwrap();
+    // Draw the player
+    execute!(io::stdout(), MoveTo(player.pos_x as u16 + PADDING_LEFT as u16, player.pos_y as u16 + PADDING_TOP as u16)).unwrap();
+    if player.is_alive { print!("@") } else { print!("%"); }
 
+    // Draw the score
+    execute!(io::stdout(), MoveTo(BOARD_WIDTH as u16 + 7, PADDING_TOP as u16 + BOARD_HEIGHT as u16)).unwrap();
+    print!("Score: {}    ", player.score);
+
+    // Draw safe teleports
+    execute!(io::stdout(), MoveTo(BOARD_WIDTH as u16 + 11, PADDING_TOP as u16 + 12)).unwrap();
+    print!("safe teleport! ({})    ", player.safe_teleports);
+
+    execute!(io::stdout(), MoveTo(BOARD_WIDTH as u16 + 4, BOARD_HEIGHT as u16 + 4)).unwrap();
 }
 
 // A very busy redraw function. However. This is the final version!
@@ -177,9 +193,9 @@ fn draw_boundaries(player: &Player) {
         "Commands:",
         "",
         "w:  wait for end",
-        "t:  teleport",
+        "t:  teleport (unsafe)",
         "s:  safe teleport! (3)",
-        "^L: redraw screen",
+        "",
         "q:  quit",
         "",
         "Legend:",
@@ -187,7 +203,7 @@ fn draw_boundaries(player: &Player) {
         "+:  robot",
         "&:  super robot",
         "N:  killer robot",
-        "*   junk heap",
+        "#   junk heap",
         "@:  you",
         "",
         "Score:  0",
@@ -218,25 +234,28 @@ fn draw_boundaries(player: &Player) {
 
 }
 
-fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>) {
+fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>) -> bool {
     enable_raw_mode().expect("Failed to enable raw mode");
+
+    let mut legal_move = false;
 
     match read().expect("Failed to read event") {
         Event::Key(event) => {
             match event.code {
                 KeyCode::Char(c) => {
                     match c {
-                        'y' => move_player(player, -1, -1), // Move diagonally up and left 
-                        'k' => move_player(player, 0, -1),  // Move up
-                        'u' => move_player(player, 1, -1),  // Move diagonally up and right
-                        'h' => move_player(player, -1, 0),  // Move left
-                        'l' => move_player(player, 1, 0),   // Move right,
-                        'b' => move_player(player, -1, 1),  // Move diagonally down and left
-                        'j' => move_player(player, 0, 1),   // Nove down
-                        'n' => move_player(player, 1, 1),   // Move diagonally down and right
-                        'q' => player.is_alive = false,
-                        't' => teleport_player(player, robots.clone()),
-                        _ => (),
+                        'y' => { move_player(player, -1, -1); legal_move = true; },     // Move diagonally up and left 
+                        'k' => { move_player(player, 0, -1); legal_move = true; },      // Move up
+                        'u' => { move_player(player, 1, -1); legal_move = true; },      // Move diagonally up and right
+                        'h' => { move_player(player, -1, 0); legal_move = true; },      // Move left
+                        'l' => { move_player(player, 1, 0); legal_move = true; },       // Move right,
+                        'b' => { move_player(player, -1, 1); legal_move = true; },      // Move diagonally down and left
+                        'j' => { move_player(player, 0, 1); legal_move = true; },       // Nove down
+                        'n' => { move_player(player, 1, 1); legal_move = true; },       // Move diagonally down and right
+                        'q' => { player.is_alive = false; legal_move = false; },        // Quit the game (needs function)
+                        's' => { teleport_player(true, player, robots.clone()); legal_move = true; },   // Safe teleport
+                        't' => { teleport_player(false, player, robots.clone()); legal_move = true; }   // Teleport
+                        _ => legal_move = false
                     }
                 },
                 _ => ()
@@ -246,6 +265,7 @@ fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>) {
     }
 
     disable_raw_mode().expect("Failed to disable raw mode");    
+    legal_move
 }
 
 fn move_player(player: &mut Player, d_pos_x: i32, d_pos_y: i32) {
@@ -254,18 +274,27 @@ fn move_player(player: &mut Player, d_pos_x: i32, d_pos_y: i32) {
     if player.pos_x < 1 {
         player.pos_x = 1;
     }
-    if player.pos_x > BOARD_WIDTH {
+    if player.pos_x >= BOARD_WIDTH {
         player.pos_x = BOARD_WIDTH;
     }
     if player.pos_y < 1 {
         player.pos_y = 1;
     }
-    if player.pos_y > BOARD_HEIGHT {
+    if player.pos_y >= BOARD_HEIGHT {
         player.pos_y = BOARD_HEIGHT;
     }
 }
 
-fn update_robot_positions(player: &Player, dumb_robots: &mut Vec<Dumb_Robot>) {
+fn game_tick(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps: &mut Vec<Junk_Heap>, game_board_data: &mut Vec<Vec<i32>>) {
+
+    // Clear the game board..
+    game_board_data.iter_mut().for_each(|row| row.iter_mut().for_each(|cell| *cell = 0));
+
+    // Add the junk heaps to the board as 2
+    for junk in junk_heaps.clone() {
+        game_board_data[junk.pos_y as usize - 1][junk.pos_x as usize - 1] = 2;
+    }
+
     // All dumb_robots should move towards the player in a straight line
     for robot in dumb_robots {
         if !robot.is_scrap {
@@ -278,6 +307,24 @@ fn update_robot_positions(player: &Player, dumb_robots: &mut Vec<Dumb_Robot>) {
                 robot.pos_y += 1;
             } else if robot.pos_y > player.pos_y {
                 robot.pos_y -= 1;
+            } else if robot.pos_y == player.pos_y && robot.pos_x == player.pos_x {
+                player.is_alive = false;
+            }
+
+            // Add this robot to the game_board if it is a free slot, otherwise turn into scrap
+            if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 0 {
+                game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] = 1;
+            }
+            else if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 1 {
+                robot.is_scrap = true;
+                player.score += 2;
+
+                // Add a junk heap the heaps array
+                junk_heaps.push(Junk_Heap { pos_x: robot.pos_x, pos_y: robot.pos_y });
+            }
+            else if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
+                robot.is_scrap = true;
+                player.score += 1;
             }
         }
     }
@@ -285,32 +332,20 @@ fn update_robot_positions(player: &Player, dumb_robots: &mut Vec<Dumb_Robot>) {
 
 fn evaluate_state(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps: &mut Vec<Junk_Heap>) {
     // Create a copy of the dumb_robots vector to avoid borrowing issues
-    let dumb_robots_copy = dumb_robots.clone();
+    //let dumb_robots_copy = dumb_robots.clone();
 
-
-    for robot in dumb_robots {
-        if robot.pos_x == player.pos_x && robot.pos_y == player.pos_y {
-            player.is_alive = false;
-        }
-
-        // Check if two robots are in the same space. If so. Remove it
-        for other_robot in &dumb_robots_copy {
-            if robot.pos_x == other_robot.pos_x && robot.pos_y == other_robot.pos_y &&
-                robot.id != other_robot.id {
-                robot.is_scrap = true;
-            }
-        }
-
-        if robot.is_scrap {
-            junk_heaps.push(Junk_Heap { pos_x: robot.pos_x, pos_y: robot.pos_y });        }
-    }
+    // for robot in dumb_robots {
+    //     if robot.pos_x == player.pos_x && robot.pos_y == player.pos_y {
+    //         player.is_alive = false;
+    //     }
+    // }
 }
 
-fn teleport_player(player: &mut Player, dumb_robots: Vec<Dumb_Robot>) {
+fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<Dumb_Robot>) {
 
     let mut safe_teleport = false;
     // Check if the player has any safe teleports left
-    if player.safe_teleports > 0 {
+    if player.safe_teleports > 0 && try_safe{
         safe_teleport = true;
         player.safe_teleports -= 1;
     }
@@ -351,12 +386,16 @@ fn validate_board(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>) {
 }
 
 fn main() {
+    execute!(io::stdout(), Hide).unwrap();
+
     // let args = Args::parse();
     // println!("{:?}", args);
     // handle_highscore(&args);
 
     // We need a playing ground..
     let mut rng = rand::thread_rng();
+
+    let mut game_board_data: Vec<Vec<i32>> = vec![vec![0; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize];
 
     let mut dumb_robots: Vec<Dumb_Robot> = Vec::new();
     let mut junk_heaps: Vec<Junk_Heap> = Vec::new();
@@ -387,15 +426,14 @@ fn main() {
             p_x = rng.gen_range(1..BOARD_WIDTH);
             p_y = rng.gen_range(1..BOARD_HEIGHT);
 
-            occupied = false;
-            for robot in &dumb_robots {
-                if robot.pos_x == p_x && robot.pos_y == p_y {
-                    occupied = true;
-                }
+            if game_board_data[p_y as usize - 1][p_x as usize - 1] == 0 {
+                occupied = false;
             }
         }
 
         dumb_robots.push(Dumb_Robot { pos_x: p_x, pos_y: p_y, is_scrap: false, id: i, kind: 1 });
+        // Add the robot to the game board array
+        game_board_data[p_y as usize - 1][p_x as usize - 1] = 1;
     }
 
     // Validate the board making sure that the setup is correct
@@ -407,13 +445,21 @@ fn main() {
     while player.is_alive {
         draw_boundaries(&player);
         draw_active_objects(&player, &dumb_robots, &junk_heaps);
-        player_input(&mut player, &dumb_robots);
-        update_robot_positions(&player, &mut dumb_robots);
-        evaluate_state(&mut player, &mut dumb_robots, &mut junk_heaps);
+        if player_input(&mut player, &dumb_robots) {
+            game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
+            evaluate_state(&mut player, &mut dumb_robots, &mut junk_heaps);
+            // For testing purposes
+             //player.score += 1;
+
+        }
     }
 
     draw_boundaries(&player);
     draw_active_objects(&player, &dumb_robots, &junk_heaps);
+
+    // Just to clean up stuff..
+    execute!(io::stdout(), Show).unwrap();
+    println!("");
 
     // add_dummy_score(&args.username, &args.path)
 }
