@@ -1,10 +1,13 @@
 use std::fs::OpenOptions;
-use std::io::prelude::*;
+use std::io::{self, prelude::*};
 use clap::{CommandFactory, Parser};
 use rand::Rng;
-use console::Term;
-use crossterm::event::{read, Event, KeyCode};
-use crossterm::terminal::{enable_raw_mode, disable_raw_mode};
+use crossterm::{
+    execute,
+    event::{read, Event, KeyCode},
+    terminal::{disable_raw_mode, enable_raw_mode, Clear, ClearType},
+    cursor::{Hide, Show, MoveTo}
+};
 
 const PADDING_LEFT: i32 = 3;
 const PADDING_TOP: i32 = 1;
@@ -94,7 +97,7 @@ fn validate_highscore_file(path: &str) {
 
 fn handle_highscore(args: &Args) {
     let username = &args.username;
-    if username == "show_highscore" {
+    if username == "show_highscore" && !args.show_highscore {
         Args::command().print_help().unwrap();
         std::process::exit(0);
     }
@@ -102,13 +105,14 @@ fn handle_highscore(args: &Args) {
     validate_highscore_file(&path);
     if args.show_highscore {
         let content = top_highscores(&path).join("\n");
-        let term = Term::stdout();
-        term.clear_screen().expect("Failed to clear terminal");
-        term.hide_cursor().expect("Failed to hide cursor");
-        term.write_line(&content).expect("Failed to write to terminal");
-        term.write_line("<More>").expect("Failed to write to terminal");
-        term.read_key().expect("Failed to read key");
-        term.show_cursor().expect("Failed to show cursor");
+        execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
+        execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
+        execute!(io::stdout(), Hide).expect("Failed to hide cursor");
+        println!("{}\n<More>", &content);
+        execute!(io::stdout(), Show).expect("Failed to show cursor");
+        enable_raw_mode().expect("Failed to enable raw mode");
+        read().expect("Failed to read event");
+        disable_raw_mode().expect("Failed to disable raw mode");
         std::process::exit(0);
     }
 }
@@ -134,16 +138,14 @@ fn top_highscores(path: &str) -> Vec<String> {
 }
 
 
-fn draw_active_objects(player: &Player, dumb_robots: &Vec<Dumb_Robot>, junk_heaps: &Vec<Junk_Heap>) {    
-    let terminal = Term::stdout();
-
+fn draw_active_objects(player: &Player, dumb_robots: &Vec<Dumb_Robot>, junk_heaps: &Vec<Junk_Heap>) {
     // Draw the player
-    terminal.move_cursor_to(player.pos_x as usize + PADDING_LEFT as usize, player.pos_y as usize + PADDING_TOP as usize).unwrap(); // Adjusted for 0-based indexing
+    execute!(io::stdout(), MoveTo(player.pos_x as u16 + PADDING_LEFT as u16, player.pos_y as u16 + PADDING_TOP as u16)).unwrap();
     print!("@");
 
     // Draw the robots
     for robot in dumb_robots {
-        terminal.move_cursor_to(robot.pos_x as usize + PADDING_LEFT as usize, robot.pos_y as usize + PADDING_TOP as usize).unwrap(); // Adjusted for 0-based indexing
+        execute!(io::stdout(), MoveTo(robot.pos_x as u16 + PADDING_LEFT as u16, robot.pos_y as u16 + PADDING_TOP as u16)).unwrap();
         if !robot.is_scrap {
             print!("+");
         }
@@ -151,19 +153,18 @@ fn draw_active_objects(player: &Player, dumb_robots: &Vec<Dumb_Robot>, junk_heap
 
     // Draw the junk heaps
     for junk in junk_heaps {
-        terminal.move_cursor_to(junk.pos_x as usize + PADDING_LEFT as usize, junk.pos_y as usize + PADDING_TOP as usize).unwrap(); // Adjusted for 0-based indexing
+        execute!(io::stdout(), MoveTo(junk.pos_x as u16 + PADDING_LEFT as u16, junk.pos_y as u16 + PADDING_TOP as u16)).unwrap();
         print!("#");
     }
 
-    terminal.move_cursor_to(0, PADDING_TOP as usize + BOARD_HEIGHT as usize + 3).unwrap(); // Adjusted for 0-based indexing
+    execute!(io::stdout(), MoveTo(0, PADDING_TOP as u16 + BOARD_HEIGHT as u16 + 3)).unwrap();
 
 }
 
 // A very busy redraw function. However. This is the final version!
 fn draw_boundaries(player: &Player) {
-    let terminal = Term::stdout(); 
-    terminal.clear_screen().unwrap();
-    
+    execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
+    execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
     let menu = vec![
         "Directions:",
         "",
@@ -191,17 +192,15 @@ fn draw_boundaries(player: &Player) {
         "",
         "Score:  0",
     ];
-    for (i, line) in menu.iter().enumerate() {
-        terminal
-            .move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + i)
-            .unwrap(); // Adjusted for 0-based indexing
+    for ((line, i)) in menu.iter().zip(0..) {
+        execute!(io::stdout(), MoveTo(PADDING_LEFT as u16 + BOARD_WIDTH as u16 + 4, PADDING_TOP as u16 + i)).expect("Failed to move cursor");
         print!("{}", line);
     }
 
-    terminal.move_cursor_to(0, 0).unwrap();
+    execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
 
     print!("{}", "\n".repeat(PADDING_TOP as usize));
-    print!("{}", " ".repeat(PADDING_LEFT as usize)); 
+    print!("{}", " ".repeat(PADDING_LEFT as usize));
     print!("/");
     print!("{}", "-".repeat(BOARD_WIDTH as usize));
     println!("\\");
@@ -211,7 +210,7 @@ fn draw_boundaries(player: &Player) {
         print!("{}", " ".repeat(BOARD_WIDTH as usize));
         println!("|");
     }
-    print!("{}", " ".repeat(PADDING_LEFT as usize)); 
+    print!("{}", " ".repeat(PADDING_LEFT as usize));
     print!("\\");
     print!("{}", "-".repeat(BOARD_WIDTH as usize));
     println!("/");
