@@ -334,41 +334,77 @@ fn game_tick(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps:
 
     // All dumb_robots should move towards the player in a straight line
     for robot in dumb_robots {
-        if !robot.is_scrap {
-            // First just make sure that this robot is not standing on a junk pile.
-            if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
-                robot.is_scrap = true;
-                player.score += 1;
-                continue;
-            }
+        // Ugly, but it works... ;)
 
-            if robot.pos_x < player.pos_x {
-                robot.pos_x += 1;
-            } else if robot.pos_x > player.pos_x {
-                robot.pos_x -= 1;
-            }
-            if robot.pos_y < player.pos_y {
-                robot.pos_y += 1;
-            } else if robot.pos_y > player.pos_y {
-                robot.pos_y -= 1;
-            } else if robot.pos_y == player.pos_y && robot.pos_x == player.pos_x {
-                player.is_alive = false;
-            }
+        if robot.kind == 1 {
+            if !robot.is_scrap {
+                // First just make sure that this robot is not standing on a junk pile.
+                if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
+                    robot.is_scrap = true;
+                    player.score += 1;
+                    continue;
+                }
 
-            // Add this robot to the game_board if it is a free slot, otherwise turn into scrap
-            if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 0 {
-                game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] = 1;
-            }
-            else if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 1 {
-                robot.is_scrap = true;
-                player.score += 2;
+                if robot.pos_x < player.pos_x {
+                    robot.pos_x += 1;
+                } else if robot.pos_x > player.pos_x {
+                    robot.pos_x -= 1;
+                }
+                if robot.pos_y < player.pos_y {
+                    robot.pos_y += 1;
+                } else if robot.pos_y > player.pos_y {
+                    robot.pos_y -= 1;
+                } else if robot.pos_y == player.pos_y && robot.pos_x == player.pos_x {
+                    player.is_alive = false;
+                }
 
-                // Add a junk heap the heaps array
-                junk_heaps.push(Junk_Heap { pos_x: robot.pos_x, pos_y: robot.pos_y });
+                // Add this robot to the game_board if it is a free slot, otherwise turn into scrap
+                if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 0 {
+                    game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] = 1;
+                }
+                else if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 1 {
+                    robot.is_scrap = true;
+                    player.score += 2;
+
+                    // Add a junk heap the heaps array
+                    junk_heaps.push(Junk_Heap { pos_x: robot.pos_x, pos_y: robot.pos_y });
+                }
+                else if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
+                    robot.is_scrap = true;
+                    player.score += 1;
+                }
             }
-            else if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
-                robot.is_scrap = true;
-                player.score += 1;
+        }
+        else if robot.kind == 2 {
+            if !robot.is_scrap {
+                // First just make sure that this robot is not standing on a junk pile.
+                if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
+                    robot.is_scrap = true;
+                    player.score += 1;
+                    continue;
+                }
+
+                // The robot of kind two can jump as a knight/horse like in chess and always tries to catch the player,
+                // I.e three steps in one direction and two in the other, or two steps in one direction and three in the other
+
+                let mut x_diff = (player.pos_x - robot.pos_x).abs();
+                let mut y_diff = (player.pos_y - robot.pos_y).abs();
+
+                // Add this robot to the game_board if it is a free slot, otherwise turn into scrap
+                if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 0 {
+                    game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] = 1;
+                }
+                else if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 1 {
+                    robot.is_scrap = true;
+                    player.score += 2;
+
+                    // Add a junk heap the heaps array
+                    junk_heaps.push(Junk_Heap { pos_x: robot.pos_x, pos_y: robot.pos_y });
+                }
+                else if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
+                    robot.is_scrap = true;
+                    player.score += 1;
+                }
             }
         }
     }
@@ -405,7 +441,7 @@ fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<Dumb_Ro
     println!("");
 
     // Sleep for 200ms
-    std::thread::sleep(std::time::Duration::from_millis(2000));    
+    std::thread::sleep(std::time::Duration::from_millis(500));    
 
     let mut rng = rand::thread_rng();
     let mut new_x = rng.gen_range(1..BOARD_WIDTH);
@@ -517,6 +553,12 @@ fn main() {
     draw_boundaries(&player);
     draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
 
+    execute!(io::stdout(), MoveTo(PADDING_LEFT as u16 + 4, PADDING_TOP as u16)).unwrap();
+    println!("[You did not make it. You were caught by the robots..]");
+
+    // Sleep for 1000ms
+    std::thread::sleep(std::time::Duration::from_millis(1000));
+
     if retry_query() {
         main();
     }
@@ -556,7 +598,7 @@ fn retry_query() -> bool {
                         'Y' => try_again = true,    // We want to retry (should caps lock be initiated)
                         'n' => try_again = false,   // We do not want to retry
                         'N' => try_again = false,   // We do not want to retry (should caps lock be initiated)
-                        _ => { try_again = true; () }
+                        _ => { try_again = false; retry_query(); }
                     }
                 },
                 _ => ()
