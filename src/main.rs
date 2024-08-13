@@ -162,6 +162,7 @@ fn draw_boundaries(player: &Player) {
     
     let menu = vec![
         "Directions:",
+        "",
         "y k u",
         " \\|/",
         "h- -l",
@@ -169,6 +170,7 @@ fn draw_boundaries(player: &Player) {
         "b j n",
         "",
         "Commands:",
+        "",
         "w:  wait for end",
         "t:  teleport",
         "s:  safe teleport! (3)",
@@ -176,6 +178,7 @@ fn draw_boundaries(player: &Player) {
         "q:  quit",
         "",
         "Legend:",
+        "",
         "+:  robot",
         "&:  super robot",
         "N:  killer robot",
@@ -186,7 +189,7 @@ fn draw_boundaries(player: &Player) {
     ];
     for (i, line) in menu.iter().enumerate() {
         terminal
-            .move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + i + 1)
+            .move_cursor_to(PADDING_LEFT as usize + BOARD_WIDTH as usize + 4, PADDING_TOP as usize + i)
             .unwrap(); // Adjusted for 0-based indexing
         print!("{}", line);
     }
