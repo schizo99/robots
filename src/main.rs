@@ -143,7 +143,7 @@ fn quit_or_die() {
 }
 
 
-fn draw_active_objects(player: &Player, dumb_robots: &Vec<Dumb_Robot>, junk_heaps: &Vec<Junk_Heap>) {
+fn draw_active_objects(player: &Player, dumb_robots: &Vec<Dumb_Robot>, junk_heaps: &Vec<Junk_Heap>, game_state: &Game_State) {
     // Draw the player
     execute!(io::stdout(), MoveTo(player.pos_x as u16 + PADDING_LEFT as u16, player.pos_y as u16 + PADDING_TOP as u16)).unwrap();
     print!("@");
@@ -174,7 +174,28 @@ fn draw_active_objects(player: &Player, dumb_robots: &Vec<Dumb_Robot>, junk_heap
     execute!(io::stdout(), MoveTo(BOARD_WIDTH as u16 + 11, PADDING_TOP as u16 + 12)).unwrap();
     print!("safe teleport! ({})    ", player.safe_teleports);
 
+    // Draw the level and some more data
+    execute!(io::stdout(), MoveTo(PADDING_LEFT as u16 + 3, PADDING_TOP as u16 + BOARD_HEIGHT as u16 + 2)).unwrap();
+    print!(" Level: {} ", game_state.level);
+
+    execute!(io::stdout(), MoveTo(PADDING_LEFT as u16 + 24, PADDING_TOP as u16 + BOARD_HEIGHT as u16 + 2)).unwrap();
+    print!(" Robots: {} ", alive_robots(dumb_robots));
+
+    execute!(io::stdout(), MoveTo(PADDING_LEFT as u16 + 44, PADDING_TOP as u16 + BOARD_HEIGHT as u16 + 2)).unwrap();
+    print!(" Junk piles: {} ", junk_heaps.len());
+
+
     execute!(io::stdout(), MoveTo(BOARD_WIDTH as u16 + 4, BOARD_HEIGHT as u16 + 4)).unwrap();
+}
+
+fn alive_robots(robots: &Vec<Dumb_Robot>) -> i32 {
+    let mut alive = 0;
+    for robot in robots {
+        if !robot.is_scrap {
+            alive += 1;
+        }
+    }
+    alive
 }
 
 // A very busy redraw function. However. This is the final version!
@@ -458,7 +479,7 @@ fn main() {
 
     while player.is_alive {
         draw_boundaries(&player);
-        draw_active_objects(&player, &dumb_robots, &junk_heaps);
+        draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
         if !game_state.wait_for_end {
             if player_input(&mut player, &dumb_robots, &mut game_state) {
                 game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
@@ -479,7 +500,7 @@ fn main() {
     }
 
     draw_boundaries(&player);
-    draw_active_objects(&player, &dumb_robots, &junk_heaps);
+    draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
 
     // Just to clean up stuff..
     execute!(io::stdout(), Show).unwrap();
