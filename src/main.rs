@@ -381,16 +381,10 @@ fn game_tick(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps:
 
 fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<Dumb_Robot>) {
     // Because Andreas said so.. We need a prompt to tell people that they are teleporting..
-    // execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
-    execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
-    execute!(io::stdout(), Hide).expect("Failed to hide cursor");
+    //execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
+    //execute!(io::stdout(), Hide).expect("Failed to hide cursor");
 
     //execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
-    execute!(io::stdout(), MoveTo(BOARD_WIDTH as u16 + 4, BOARD_HEIGHT as u16 + 4)).unwrap();
-    print!("Teleporting..");
-
-    // Sleep for 200ms
-    std::thread::sleep(std::time::Duration::from_millis(2000));
 
 
     let mut safe_teleport = false;
@@ -399,6 +393,19 @@ fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<Dumb_Ro
         safe_teleport = true;
         player.safe_teleports -= 1;
     }
+
+    execute!(io::stdout(), MoveTo(BOARD_WIDTH as u16 + 7, PADDING_TOP as u16 + BOARD_HEIGHT as u16)).unwrap();
+    if safe_teleport {
+        print!("Teleporting (safe)...");
+    }
+    else {
+        print!("Teleporting...");
+    }
+
+    println!("");
+
+    // Sleep for 200ms
+    std::thread::sleep(std::time::Duration::from_millis(2000));    
 
     let mut rng = rand::thread_rng();
     let mut new_x = rng.gen_range(1..BOARD_WIDTH);
