@@ -321,7 +321,7 @@ fn game_tick(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps:
     // All dumb_robots should move towards the player in a straight line
     for robot in dumb_robots {
         if !robot.is_scrap {
-            // First just make sure that this robot is not standing on a junk pile
+            // First just make sure that this robot is not standing on a junk pile.
             if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
                 robot.is_scrap = true;
                 player.score += 1;
@@ -357,6 +357,11 @@ fn game_tick(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps:
                 player.score += 1;
             }
         }
+    }
+
+    // Also make sure that the player is not standing on a newly created junk pile..
+    if game_board_data[player.pos_y as usize - 1][player.pos_x as usize - 1] != 0 {
+        player.is_alive = false;
     }
 }
 
@@ -431,6 +436,65 @@ fn main() {
         wait_for_end: false,
     };
 
+    let mut player = Player {
+        username: "Kalle".to_string(),
+        score: 0,
+        is_alive: true,
+        pos_x: 0,
+        pos_y: 0,
+        safe_teleports: 3,
+    };
+
+
+    while player.is_alive{
+        // Generate level should generate robots based on the level, and randomize the player position
+        generate_level(&game_state, &mut game_board_data, &mut dumb_robots, &mut junk_heaps, &mut player);
+
+        while player.is_alive && any_robots_left(&dumb_robots) {    
+            draw_boundaries(&player);
+            draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
+            if !game_state.wait_for_end {
+                if player_input(&mut player, &dumb_robots, &mut game_state) {
+                    game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
+                }
+            }
+            else {
+                game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
+                // Sleep for 75ms
+                std::thread::sleep(std::time::Duration::from_millis(75));
+            }
+
+            if !any_robots_left(&dumb_robots) {
+                game_state.wait_for_end = false;
+
+                // Increase the level (and perhaps write something)
+                game_state.level += 1;
+                generate_level(&game_state, &mut game_board_data, &mut dumb_robots, &mut junk_heaps, &mut player);
+            }
+        }
+    }
+
+    draw_boundaries(&player);
+    draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
+
+    // Just to clean up stuff..
+    execute!(io::stdout(), Show).unwrap();
+    println!("");
+
+    // add_dummy_score(&args.username, &args.path)
+}
+
+// Generate level
+fn generate_level(game_state: &Game_State, game_board_data: &mut Vec<Vec<i32>>, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps: &mut Vec<Junk_Heap>, player: &mut Player) {
+    let mut rng = rand::thread_rng();
+
+    // Clear the game board..
+    game_board_data.iter_mut().for_each(|row| row.iter_mut().for_each(|cell| *cell = 0));
+
+    // Clear the old junk piles vector and the dumb_robots one
+    dumb_robots.clear();
+    junk_heaps.clear();
+
     // Add dumb robots. 20 per level (Move to other function)
     for i in 0 .. game_state.level * 20 {
 
@@ -466,45 +530,6 @@ fn main() {
         }
     }
 
-    // Setup the player
-    let mut player = Player {
-        username: "Kalle".to_string(),
-        score: 0,
-        is_alive: true,
-        pos_x: p_x,
-        pos_y: p_y,
-        safe_teleports: 3,
-    };
-
-
-    while player.is_alive {
-        draw_boundaries(&player);
-        draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
-        if !game_state.wait_for_end {
-            if player_input(&mut player, &dumb_robots, &mut game_state) {
-                game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
-            }
-        }
-        else {
-            game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
-            // Sleep for 75ms
-            std::thread::sleep(std::time::Duration::from_millis(75));
-        }
-
-        if !any_robots_left(&dumb_robots) {
-            game_state.wait_for_end = false;
-
-            // Generate new level....
-        }
-
-    }
-
-    draw_boundaries(&player);
-    draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
-
-    // Just to clean up stuff..
-    execute!(io::stdout(), Show).unwrap();
-    println!("");
-
-    // add_dummy_score(&args.username, &args.path)
+    player.pos_x = p_x;
+    player.pos_y = p_y;
 }
