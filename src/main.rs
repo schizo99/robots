@@ -16,9 +16,9 @@ const BOARD_WIDTH: i32 = 60;
 const BOARD_HEIGHT : i32 = 24;
 
 struct Game_State {
-    score: i32,
     turn: i32,
     level: i32,
+    wait_for_end: bool,
 }
 
 struct Player {
@@ -195,7 +195,7 @@ fn draw_boundaries(player: &Player) {
         "w:  wait for end",
         "t:  teleport (unsafe)",
         "s:  safe teleport! (3)",
-        "",
+        ".:  wait one turn",
         "q:  quit",
         "",
         "Legend:",
@@ -234,7 +234,7 @@ fn draw_boundaries(player: &Player) {
 
 }
 
-fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>) -> bool {
+fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>, game_state: &mut Game_State) -> bool {
     enable_raw_mode().expect("Failed to enable raw mode");
 
     let mut legal_move = false;
@@ -255,7 +255,9 @@ fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>) -> bool {
                         'q' => { player.is_alive = false; legal_move = false; },        // Quit the game (needs function)
                         's' => { teleport_player(true, player, robots.clone()); legal_move = true; },   // Safe teleport
                         't' => { teleport_player(false, player, robots.clone()); legal_move = true; }   // Teleport
-                        _ => legal_move = false
+                        'w' => { game_state.wait_for_end = true; legal_move = true; },  // Wait until robots are gone, or player is dead
+                        '.' => legal_move = true,   // Wait
+                        _ => legal_move = false     // Do nothing
                     }
                 },
                 _ => ()
@@ -298,6 +300,13 @@ fn game_tick(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps:
     // All dumb_robots should move towards the player in a straight line
     for robot in dumb_robots {
         if !robot.is_scrap {
+            // First just make sure that this robot is not standing on a junk pile
+            if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
+                robot.is_scrap = true;
+                player.score += 1;
+                continue;
+            }
+
             if robot.pos_x < player.pos_x {
                 robot.pos_x += 1;
             } else if robot.pos_x > player.pos_x {
@@ -328,17 +337,6 @@ fn game_tick(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps:
             }
         }
     }
-}
-
-fn evaluate_state(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps: &mut Vec<Junk_Heap>) {
-    // Create a copy of the dumb_robots vector to avoid borrowing issues
-    //let dumb_robots_copy = dumb_robots.clone();
-
-    // for robot in dumb_robots {
-    //     if robot.pos_x == player.pos_x && robot.pos_y == player.pos_y {
-    //         player.is_alive = false;
-    //     }
-    // }
 }
 
 fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<Dumb_Robot>) {
@@ -377,12 +375,17 @@ fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<Dumb_Ro
         player.pos_x = new_x;
         player.pos_y = new_y;
     }
- 
-
 }
 
-fn validate_board(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>) {
+fn any_robots_left(robots: &Vec<Dumb_Robot>) -> bool {
+    // Iterate over the robots and check whether at least one is alive
+    for robot in robots {
+        if !robot.is_scrap {
+            return true;
+        }
+    }
 
+    false
 }
 
 fn main() {
@@ -400,19 +403,11 @@ fn main() {
     let mut dumb_robots: Vec<Dumb_Robot> = Vec::new();
     let mut junk_heaps: Vec<Junk_Heap> = Vec::new();
 
-    let mut player = Player {
-        username: "Kalle".to_string(),
-        score: 0,
-        is_alive: true,
-        pos_x: rng.gen_range(1..BOARD_WIDTH),
-        pos_y: rng.gen_range(1..BOARD_HEIGHT),
-        safe_teleports: 3,
-    };
-
+    // Basic setup
     let mut game_state = Game_State {
-        score: 0,
         turn: 0,
         level: 1,
+        wait_for_end: false,
     };
 
     // Add dumb robots. 20 per level (Move to other function)
@@ -436,22 +431,51 @@ fn main() {
         game_board_data[p_y as usize - 1][p_x as usize - 1] = 1;
     }
 
-    // Validate the board making sure that the setup is correct
-    validate_board(&mut player, &mut dumb_robots);
+    // Setup the player
+    let mut found_starting_spot = false;
+    let mut p_x = 0;
+    let mut p_y = 0;
 
-    //dumb_robots.push(Dumb_Robot { pos_x: rng.gen_range(1..BOARD_WIDTH), pos_y: rng.gen_range(1..BOARD_HEIGHT), is_scrap: false, id: 1 });
-    // dumb_robots.push(Dumb_Robot { pos_x: rng.gen_range(1..BOARD_WIDTH), pos_y: rng.gen_range(1..BOARD_HEIGHT), is_scrap: false, id: 2 });
+    while !found_starting_spot {
+        p_x = rng.gen_range(1..BOARD_WIDTH);
+        p_y = rng.gen_range(1..BOARD_HEIGHT);
+
+        if game_board_data[p_y as usize - 1][p_x as usize - 1] == 0 {
+            found_starting_spot = true;
+        }
+    }
+
+    // Setup the player
+    let mut player = Player {
+        username: "Kalle".to_string(),
+        score: 0,
+        is_alive: true,
+        pos_x: p_x,
+        pos_y: p_y,
+        safe_teleports: 3,
+    };
+
 
     while player.is_alive {
         draw_boundaries(&player);
         draw_active_objects(&player, &dumb_robots, &junk_heaps);
-        if player_input(&mut player, &dumb_robots) {
-            game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
-            evaluate_state(&mut player, &mut dumb_robots, &mut junk_heaps);
-            // For testing purposes
-             //player.score += 1;
-
+        if !game_state.wait_for_end {
+            if player_input(&mut player, &dumb_robots, &mut game_state) {
+                game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
+            }
         }
+        else {
+            game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
+            // Sleep for 75ms
+            std::thread::sleep(std::time::Duration::from_millis(75));
+        }
+
+        if !any_robots_left(&dumb_robots) {
+            game_state.wait_for_end = false;
+
+            // Generate new level....
+        }
+
     }
 
     draw_boundaries(&player);
