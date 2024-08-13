@@ -15,6 +15,7 @@ const PADDING_TOP: i32 = 1;
 const BOARD_WIDTH: i32 = 60;
 const BOARD_HEIGHT : i32 = 24;
 
+#[derive(Clone, Copy)]
 struct Game_State {
     turn: i32,
     level: i32,
@@ -81,29 +82,19 @@ fn validate_highscore_file(path: &str) {
     }
 }
 
-fn add_highscore(args: &Args, player: &Player, state: &Game_State) {
-    let mut file = OpenOptions::new()
-        .append(true)
-        .open(&args.path)
-        .unwrap();
+// fn add_dummy_score(username: &str, path: &str) {
+//     let mut file = OpenOptions::new()
+//         .append(true)
+//         .open(path)
+//         .unwrap();
 
-    let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-    if let Err(e) = writeln!(file, "{};{};{};{}", player.username, player.score, state.level,timestamp) {
-        eprintln!("Couldn't write to file: {}", e);
-    }
-}
-
-fn show_highscore(path: &str) {
-    let content = top_highscores(&path).join("\n");
-    execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
-    execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
-    execute!(io::stdout(), Hide).expect("Failed to hide cursor");
-    println!("{}\n<More>", &content);
-    enable_raw_mode().expect("Failed to enable raw mode");
-    read().expect("Failed to read event");
-    execute!(io::stdout(), Show).expect("Failed to show cursor");
-    disable_raw_mode().expect("Failed to disable raw mode");
-}
+//     println!("Adding dummy score for user: {}", username);
+//     let score = rand::thread_rng().gen_range(0..100);
+//     let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+//     if let Err(e) = writeln!(file, "{};{};{}", username, score, timestamp) {
+//         eprintln!("Couldn't write to file: {}", e);
+//     }
+// }
 
 fn handle_highscore(args: &Args) {
     let username = &args.username;
@@ -114,33 +105,35 @@ fn handle_highscore(args: &Args) {
     let path = &args.path;
     validate_highscore_file(&path);
     if args.show_highscore {
-        show_highscore(&path);
+        let content = top_highscores(&path).join("\n");
+        execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
+        execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
+        execute!(io::stdout(), Hide).expect("Failed to hide cursor");
+        println!("{}\n<More>", &content);
+        execute!(io::stdout(), Show).expect("Failed to show cursor");
+        enable_raw_mode().expect("Failed to enable raw mode");
+        read().expect("Failed to read event");
+        disable_raw_mode().expect("Failed to disable raw mode");
         std::process::exit(0);
     }
 }
 
 fn top_highscores(path: &str) -> Vec<String> {
-    let mut highscores: Vec<(String, i32, i32)> = Vec::new();
+    let mut highscores: Vec<(String, i32)> = Vec::new();
     let content = std::fs::read_to_string(path).unwrap();
     for line in content.lines() {
         let parts: Vec<&str> = line.split(";").collect();
-        if parts.len() == 4 {
+        if parts.len() == 3 {
             let username = parts[0];
             let score = parts[1].parse::<i32>().unwrap();
-            let level = parts[2].parse::<i32>().unwrap();
-            highscores.push((username.to_string(), score, level));
+            highscores.push((username.to_string(), score));
         }
     }
-    let padding = highscores.iter().map(|(username, _, _)| username.len()).max().unwrap_or(0);
     highscores.sort_by(|a, b| b.1.cmp(&a.1));
     let mut result = vec![];
-    result.push(format!("{}", "-".repeat(padding + 15)));
     result.push(format!("Top 10 highscores:"));
-    result.push(format!("{}", "-".repeat(padding + 15)));
-    result.push(format!("Player{}\tScore\tLevel\t", " ".repeat(padding-6)));
-    result.push(format!("{}", "-".repeat(padding + 15)));
-    for (i, (username, score, level)) in highscores.iter().take(10).enumerate() {
-        result.push(format!("{}{}\t{}\t{}", username," ".repeat(padding - username.len()), score, level));
+    for (i, (username, score)) in highscores.iter().take(10).enumerate() {
+        result.push(format!("{}. {}: {}", i + 1, username, score));
     }
     return result;
 }
@@ -263,7 +256,7 @@ fn draw_boundaries(player: &Player) {
 
 }
 
-fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>, game_state: &mut Game_State) -> bool {
+fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>, game_state: &mut Game_State, game_board_data: &Vec<Vec<i32>>) -> bool {
     enable_raw_mode().expect("Failed to enable raw mode");
 
     let mut legal_move = false;
@@ -273,14 +266,14 @@ fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>, game_state: &mut 
             match event.code {
                 KeyCode::Char(c) => {
                     match c {
-                        'y' => { move_player(player, -1, -1); legal_move = true; },     // Move diagonally up and left 
-                        'k' => { move_player(player, 0, -1); legal_move = true; },      // Move up
-                        'u' => { move_player(player, 1, -1); legal_move = true; },      // Move diagonally up and right
-                        'h' => { move_player(player, -1, 0); legal_move = true; },      // Move left
-                        'l' => { move_player(player, 1, 0); legal_move = true; },       // Move right,
-                        'b' => { move_player(player, -1, 1); legal_move = true; },      // Move diagonally down and left
-                        'j' => { move_player(player, 0, 1); legal_move = true; },       // Nove down
-                        'n' => { move_player(player, 1, 1); legal_move = true; },       // Move diagonally down and right
+                        'y' => { legal_move = move_player(player, -1, -1, game_state, game_board_data); },     // Move diagonally up and left 
+                        'k' => { legal_move = move_player(player, 0, -1, game_state, game_board_data); },      // Move up
+                        'u' => { legal_move = move_player(player, 1, -1, game_state, game_board_data); },      // Move diagonally up and right
+                        'h' => { legal_move = move_player(player, -1, 0, game_state, game_board_data); },      // Move left
+                        'l' => { legal_move = move_player(player, 1, 0, game_state, game_board_data); },       // Move right,
+                        'b' => { legal_move = move_player(player, -1, 1, game_state, game_board_data); },      // Move diagonally down and left
+                        'j' => { legal_move = move_player(player, 0, 1, game_state, game_board_data); },       // Nove down
+                        'n' => { legal_move = move_player(player, 1, 1, game_state, game_board_data); },       // Move diagonally down and right
                         'q' => { player.is_alive = false; legal_move = false; },        // Quit the game (needs function)
                         's' => { teleport_player(true, player, robots.clone()); legal_move = true; },   // Safe teleport
                         't' => { teleport_player(false, player, robots.clone()); legal_move = true; }   // Teleport
@@ -299,9 +292,10 @@ fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>, game_state: &mut 
     legal_move
 }
 
-fn move_player(player: &mut Player, d_pos_x: i32, d_pos_y: i32) {
+fn move_player(player: &mut Player, d_pos_x: i32, d_pos_y: i32, game_state: &mut Game_State, game_board_data: &Vec<Vec<i32>>) -> bool {
     player.pos_x += d_pos_x;
     player.pos_y += d_pos_y;
+
     if player.pos_x < 1 {
         player.pos_x = 1;
     }
@@ -314,6 +308,14 @@ fn move_player(player: &mut Player, d_pos_x: i32, d_pos_y: i32) {
     if player.pos_y >= BOARD_HEIGHT {
         player.pos_y = BOARD_HEIGHT;
     }
+
+    if game_board_data[player.pos_y as usize - 1][player.pos_x as usize - 1] != 0 {
+        player.pos_x -= d_pos_x;
+        player.pos_y -= d_pos_y;
+        return false;
+    }
+
+    true
 }
 
 fn game_tick(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps: &mut Vec<Junk_Heap>, game_board_data: &mut Vec<Vec<i32>>) {
@@ -425,9 +427,9 @@ fn any_robots_left(robots: &Vec<Dumb_Robot>) -> bool {
 fn main() {
     execute!(io::stdout(), Hide).unwrap();
 
-    let args = Args::parse();
+    // let args = Args::parse();
     // println!("{:?}", args);
-    handle_highscore(&args);
+    // handle_highscore(&args);
 
     // We need a playing ground..
     let mut rng = rand::thread_rng();
@@ -445,7 +447,7 @@ fn main() {
     };
 
     let mut player = Player {
-        username: args.username.to_string(),
+        username: "Kalle".to_string(),
         score: 0,
         is_alive: true,
         pos_x: 0,
@@ -462,7 +464,7 @@ fn main() {
             draw_boundaries(&player);
             draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
             if !game_state.wait_for_end {
-                if player_input(&mut player, &dumb_robots, &mut game_state) {
+                if player_input(&mut player, &dumb_robots, &mut game_state, &game_board_data) {
                     game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
                 }
             }
