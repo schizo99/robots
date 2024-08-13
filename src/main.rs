@@ -93,12 +93,18 @@ fn add_highscore(args: &Args, player: &Player, state: &Game_State) {
     }
 }
 
-fn show_highscore(path: &str) {
+fn show_highscore(path: &str, player: Option<Player>, state: Option<&Game_State>) {
+    let end_score = player.unwrap_or(Player { username: "show_highscore".to_string(), score: 0, is_alive: true, pos_x: 0, pos_y: 0, safe_teleports: 0 });
+    let game_state = state.unwrap_or(&Game_State { turn: 0, level: 0, wait_for_end: false });
     let content = top_highscores(&path).join("\n");
     execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
     execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
     execute!(io::stdout(), Hide).expect("Failed to hide cursor");
-    println!("{}\n<More>", &content);
+    if end_score.username != "show_highscore" {
+        println!("{}\n<You scored {} points and made it to level {}>", &content, end_score.score, game_state.level);
+    } else {
+        println!("{}\n<More>", &content);
+    }
     enable_raw_mode().expect("Failed to enable raw mode");
     read().expect("Failed to read event");
     execute!(io::stdout(), Show).expect("Failed to show cursor");
@@ -114,7 +120,7 @@ fn handle_highscore(args: &Args) {
     let path = &args.path;
     validate_highscore_file(&path);
     if args.show_highscore {
-        show_highscore(&path);
+        show_highscore(&path, None, None);
         std::process::exit(0);
     }
 }
@@ -142,6 +148,7 @@ fn top_highscores(path: &str) -> Vec<String> {
     for (i, (username, score, level)) in highscores.iter().take(10).enumerate() {
         result.push(format!("{}{}\t{}\t{}", username," ".repeat(padding - username.len()), score, level));
     }
+    result.push(format!("{}", "-".repeat(padding + 15)));
     return result;
 }
 
@@ -481,6 +488,7 @@ fn main() {
             }
         }
     }
+    add_highscore(&args, &player, &game_state);
 
     draw_boundaries(&player);
     draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
@@ -488,7 +496,7 @@ fn main() {
     // Just to clean up stuff..
     execute!(io::stdout(), Show).unwrap();
     println!("");
-
+    show_highscore(&args.path, Some(player), Some(&game_state));
     // add_dummy_score(&args.username, &args.path)
 }
 
