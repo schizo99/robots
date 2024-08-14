@@ -15,6 +15,9 @@ const PADDING_TOP: i32 = 1;
 const BOARD_WIDTH: i32 = 60;
 const BOARD_HEIGHT : i32 = 24;
 
+const MAX_ROBOTS: i32 = 40;
+const INITIAL_ROBOTS: i32 = 20;
+
 #[derive(Clone, Copy)]
 struct Game_State {
     turn: i32,
@@ -622,6 +625,17 @@ fn retry_query() -> bool {
     try_again
 }
 
+fn no_of_dumb_robots(level: i32) -> i32 {
+    if level < 3 {
+        return INITIAL_ROBOTS;
+    }
+    else if level <= 5 && INITIAL_ROBOTS + (level - 3  * 5) > MAX_ROBOTS {
+        return INITIAL_ROBOTS + (level - 3 * 5);
+    } else {
+        return MAX_ROBOTS;
+    }
+}
+
 // Generate level
 fn generate_level(game_state: &Game_State, game_board_data: &mut Vec<Vec<i32>>, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps: &mut Vec<Junk_Heap>, player: &mut Player) {
     let mut rng = rand::thread_rng();
@@ -634,7 +648,7 @@ fn generate_level(game_state: &Game_State, game_board_data: &mut Vec<Vec<i32>>, 
     junk_heaps.clear();
 
     // Add dumb robots. 20 per level (Move to other function)
-    for i in 0 .. game_state.level * 20 {
+    for i in 0 .. no_of_dumb_robots(game_state.level) {
 
         let mut occupied = true;
         let mut p_x = 0;
