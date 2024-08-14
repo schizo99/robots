@@ -97,18 +97,19 @@ fn validate_highscore_file(path: &str) {
     }
 }
 
-fn show_highscore(path: &str, player: Option<Player>, state: Option<&Game_State>) {
-    let end_score = player.unwrap_or(Player { username: "show_highscore".to_string(), score: 0, is_alive: true, pos_x: 0, pos_y: 0, safe_teleports: 0 });
-    let game_state = state.unwrap_or(&Game_State { turn: 0, level: 0, wait_for_end: false });
+fn show_highscore(path: &str, player: &Player, game_state: &Game_State) {
+    let end_score = player.score;
+    let end_level = game_state.level;
+
     let content = top_highscores(&path).join("\n");
     execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
     execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
     execute!(io::stdout(), Hide).expect("Failed to hide cursor");
-    if end_score.username != "show_highscore" {
-        println!(" {}\n  You scored {} points and made it to level {}", &content, end_score.score, game_state.level);
-        println!("  (Press any key to continue...)");
+    if player.username == "show_highscore" {
+        println!("{}\n (Press any key to continue...)", &content);
     } else {
-        println!("{}\n  (Press any key to continue...)", &content);
+        println!("{}\n You scored {} points and made it to level {} ", &content, end_score, game_state.level);
+        println!(" (Press any key to continue...)");
     }
     enable_raw_mode().expect("Failed to enable raw mode");
     read().expect("Failed to read event");
@@ -125,7 +126,18 @@ fn handle_highscore(args: &Args) {
     let path = &args.path;
     validate_highscore_file(&path);
     if args.show_highscore {
-        show_highscore(&path, None, None);
+        show_highscore(&path, &Player {
+            username: "show_highscore".to_string(),
+            score: 0,
+            is_alive: true,
+            pos_x: 0,
+            pos_y: 0,
+            safe_teleports: 3 },
+            &Game_State {
+                turn: 0,
+                level: 1,
+                wait_for_end: false
+            });
         std::process::exit(0);
     }
 }
@@ -148,12 +160,12 @@ fn top_highscores(path: &str) -> Vec<String> {
     }
     highscores.sort_by(|a, b| b.1.cmp(&a.1));
     let mut result = vec![];
-    result.push(format!("Top 10 highscores:"));
+    result.push(format!(" Top 10 highscores:"));
     result.push(format!(" {}", "-".repeat(padding + 30)));
-    result.push(format!(" Player{}\tScore\t\tLevel\t", " ")); // .repeat(padding-6)));
+    result.push(format!(" Player{}\tScore\t\tLevel", " ")); //.repeat(padding-6)));
     result.push(format!(" {}", "-".repeat(padding + 30)));
     for (i, (username, score, level)) in highscores.iter().take(10).enumerate() {
-        result.push(format!("   {}{}\t {}\t\t {}", username," ".repeat(padding - username.len()), score, level));
+        result.push(format!("  {}{}\t {}\t\t {}", username," ".repeat(padding - username.len()), score, level));
     }
     result.push(format!(" {}", "-".repeat(padding + 30)));
     return result;
@@ -583,7 +595,7 @@ fn main() {
         main();
     }
     else {
-        show_highscore(&args.path, Some(player), Some(&game_state));
+        show_highscore(&args.path, &player, &game_state);
         quit_now();
         std::process::exit(0);
     }
