@@ -141,10 +141,12 @@ fn top_highscores(path: &str) -> Vec<String> {
             highscores.push((username.to_string(), score, level));
         }
     }
-    let padding = highscores.iter().map(|(username, _, _)| username.len()).max().unwrap_or(0);
+    let mut padding = highscores.iter().map(|(username, _, _)| username.len()).max().unwrap_or(0);
+    if padding < 6 {
+        padding = 6;
+    }
     highscores.sort_by(|a, b| b.1.cmp(&a.1));
     let mut result = vec![];
-    result.push(format!("{}", "-".repeat(padding + 15)));
     result.push(format!("Top 10 highscores:"));
     result.push(format!("{}", "-".repeat(padding + 15)));
     result.push(format!("Player{}\tScore\tLevel\t", " ".repeat(padding-6)));
@@ -459,7 +461,7 @@ fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<Dumb_Ro
     println!("");
 
     // Sleep for 200ms
-    std::thread::sleep(std::time::Duration::from_millis(500));    
+    std::thread::sleep(std::time::Duration::from_millis(500));
 
     let mut rng = rand::thread_rng();
     let mut new_x = rng.gen_range(1..BOARD_WIDTH);
@@ -524,7 +526,7 @@ fn main() {
     };
 
     let mut player = Player {
-        username: "Kalle".to_string(),
+        username: args.username.to_string(),
         score: 0,
         is_alive: true,
         pos_x: 0,
