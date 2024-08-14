@@ -566,7 +566,6 @@ fn main() {
             }
         }
     }
-    add_highscore(&args, &player, &game_state);
 
     // All is over.. Present the retry prompt..
     game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
@@ -575,6 +574,7 @@ fn main() {
 
     execute!(io::stdout(), MoveTo(PADDING_LEFT as u16 + 4, PADDING_TOP as u16)).unwrap();
     println!("[You did not make it. You were caught by the robots..]");
+    add_highscore(&args, &player, &game_state);
 
     // Sleep for 1000ms
     std::thread::sleep(std::time::Duration::from_millis(1000));
