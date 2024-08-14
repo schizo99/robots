@@ -171,11 +171,14 @@ fn top_highscores(path: &str) -> Vec<String> {
     let mut result = vec![];
     result.push(format!(" Top 10 highscores:"));
     result.push(format!(" {}", "-".repeat(padding + 30)));
-    result.push(format!(" Player{}\tScore\t\tLevel", " ")); //.repeat(padding-6)));
+    result.push(format!(
+        " Player{}\tScore\t\tLevel",
+        " ".repeat(padding - 6)
+    ));
     result.push(format!(" {}", "-".repeat(padding + 30)));
     for (i, (username, score, level)) in highscores.iter().take(10).enumerate() {
         result.push(format!(
-            "  {}{}\t {}\t\t {}",
+            " {}{}\t {}\t\t {}",
             username,
             " ".repeat(padding - username.len()),
             score,
