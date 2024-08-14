@@ -20,12 +20,13 @@ jobs:
       env:
         RUSTFLAGS: "-C target-feature=+crt-static"
 
+    - name: Create tarball
+      run: tar -czf robots_x86_64-linux.tar.gz LICENSE README.md -C target/x86_64-unknown-linux-gnu/release robots
+
     - name: Create release
       id: create_release
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          target/x86_64-unknown-linux-gnu/release/robots
-          LICENSE
-          README.md
+          robots_x86_64-linux.tar.gz
         generate_release_notes: true
