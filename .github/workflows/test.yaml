@@ -1,0 +1,21 @@
+name: Test build and cargo fmt check
+on:
+  pull_request:
+    branches:
+        - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build and cargo fmt check
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Format check
+      run: cargo fmt --check
+
+    - name: Build
+      run: cargo build --release --target x86_64-unknown-linux-gnu
+      env:
+        RUSTFLAGS: "-C target-feature=+crt-static"

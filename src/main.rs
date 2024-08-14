@@ -544,9 +544,8 @@ fn main() {
         is_alive: true,
         pos_x: 0,
         pos_y: 0,
-        safe_teleports: 3,
+        safe_teleports: 2,
     };
-
 
     while player.is_alive {
         // Generate level should generate robots based on the level, and randomize the player position
@@ -660,6 +659,9 @@ fn generate_level(game_state: &Game_State, game_board_data: &mut Vec<Vec<i32>>, 
 
     // Clear the game board..
     game_board_data.iter_mut().for_each(|row| row.iter_mut().for_each(|cell| *cell = 0));
+
+    // Add one additional safe teleport per level
+    player.safe_teleports += 1;
 
     // Clear the old junk piles vector and the dumb_robots one
     dumb_robots.clear();
