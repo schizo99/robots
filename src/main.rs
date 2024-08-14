@@ -15,6 +15,10 @@ const PADDING_TOP: i32 = 1;
 const BOARD_WIDTH: i32 = 60;
 const BOARD_HEIGHT : i32 = 24;
 
+const MAX_ROBOTS: i32 = 40;
+const INITIAL_ROBOTS: i32 = 20;
+
+#[derive(Clone, Copy)]
 struct Game_State {
     turn: i32,
     level: i32,
@@ -62,6 +66,18 @@ struct Args {
 
 }
 
+fn add_highscore(args: &Args, player: &Player, state: &Game_State) {
+    let mut file = OpenOptions::new()
+        .append(true)
+        .open(&args.path)
+        .unwrap();
+
+    let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+    if let Err(e) = writeln!(file, "{};{};{};{}", player.username, player.score, state.level,timestamp) {
+        eprintln!("Couldn't write to file: {}", e);
+    }
+}
+
 fn validate_highscore_file(path: &str) {
     println!("Validating highscore file at path: {}", path);
     match std::fs::read_to_string(path) {
@@ -78,18 +94,6 @@ fn validate_highscore_file(path: &str) {
                 }
             }
         }
-    }
-}
-
-fn add_highscore(args: &Args, player: &Player, state: &Game_State) {
-    let mut file = OpenOptions::new()
-        .append(true)
-        .open(&args.path)
-        .unwrap();
-
-    let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-    if let Err(e) = writeln!(file, "{};{};{};{}", player.username, player.score, state.level,timestamp) {
-        eprintln!("Couldn't write to file: {}", e);
     }
 }
 
@@ -137,10 +141,12 @@ fn top_highscores(path: &str) -> Vec<String> {
             highscores.push((username.to_string(), score, level));
         }
     }
-    let padding = highscores.iter().map(|(username, _, _)| username.len()).max().unwrap_or(0);
+    let mut padding = highscores.iter().map(|(username, _, _)| username.len()).max().unwrap_or(0);
+    if padding < 6 {
+        padding = 6;
+    }
     highscores.sort_by(|a, b| b.1.cmp(&a.1));
     let mut result = vec![];
-    result.push(format!("{}", "-".repeat(padding + 15)));
     result.push(format!("Top 10 highscores:"));
     result.push(format!("{}", "-".repeat(padding + 15)));
     result.push(format!("Player{}\tScore\tLevel\t", " ".repeat(padding-6)));
@@ -152,9 +158,12 @@ fn top_highscores(path: &str) -> Vec<String> {
     return result;
 }
 
-fn quit_or_die() {
+fn quit_now() {
     // Just a clean up function
     execute!(io::stdout(), Show).unwrap();
+    // Exit the application
+    println!("");
+    std::process::exit(0);
 }
 
 
@@ -270,28 +279,29 @@ fn draw_boundaries(player: &Player) {
 
 }
 
-fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>, game_state: &mut Game_State) -> bool {
+fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>, game_state: &mut Game_State, game_board_data: &Vec<Vec<i32>>) -> (bool, bool) {
     enable_raw_mode().expect("Failed to enable raw mode");
 
     let mut legal_move = false;
+    let mut quit = false;
 
     match read().expect("Failed to read event") {
         Event::Key(event) => {
             match event.code {
                 KeyCode::Char(c) => {
                     match c {
-                        'y' => { move_player(player, -1, -1); legal_move = true; },     // Move diagonally up and left 
-                        'k' => { move_player(player, 0, -1); legal_move = true; },      // Move up
-                        'u' => { move_player(player, 1, -1); legal_move = true; },      // Move diagonally up and right
-                        'h' => { move_player(player, -1, 0); legal_move = true; },      // Move left
-                        'l' => { move_player(player, 1, 0); legal_move = true; },       // Move right,
-                        'b' => { move_player(player, -1, 1); legal_move = true; },      // Move diagonally down and left
-                        'j' => { move_player(player, 0, 1); legal_move = true; },       // Nove down
-                        'n' => { move_player(player, 1, 1); legal_move = true; },       // Move diagonally down and right
-                        'q' => { player.is_alive = false; legal_move = false; },        // Quit the game (needs function)
-                        's' => { teleport_player(true, player, robots.clone()); legal_move = true; },   // Safe teleport
-                        't' => { teleport_player(false, player, robots.clone()); legal_move = true; }   // Teleport
-                        'w' => { game_state.wait_for_end = true; legal_move = true; },  // Wait until robots are gone, or player is dead
+                        'y' => { legal_move = move_player(player, -1, -1, game_state, game_board_data); },     // Move diagonally up and left 
+                        'k' => { legal_move = move_player(player, 0, -1, game_state, game_board_data); },      // Move up
+                        'u' => { legal_move = move_player(player, 1, -1, game_state, game_board_data); },      // Move diagonally up and right
+                        'h' => { legal_move = move_player(player, -1, 0, game_state, game_board_data); },      // Move left
+                        'l' => { legal_move = move_player(player, 1, 0, game_state, game_board_data); },       // Move right,
+                        'b' => { legal_move = move_player(player, -1, 1, game_state, game_board_data); },      // Move diagonally down and left
+                        'j' => { legal_move = move_player(player, 0, 1, game_state, game_board_data); },       // Nove down
+                        'n' => { legal_move = move_player(player, 1, 1, game_state, game_board_data); },       // Move diagonally down and right
+                        'q' => { player.is_alive = false; legal_move = false; quit = true; },                  // Quit the game (needs function)
+                        's' => { teleport_player(true, player, robots.clone()); legal_move = true; },          // Safe teleport
+                        't' => { teleport_player(false, player, robots.clone()); legal_move = true; }          // Teleport
+                        'w' => { game_state.wait_for_end = true; legal_move = true; },                         // Wait until robots are gone, or player is dead
                         '.' => legal_move = true,   // Wait
                         _ => legal_move = false     // Do nothing
                     }
@@ -302,13 +312,14 @@ fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>, game_state: &mut 
         _ => {}
     }
 
-    disable_raw_mode().expect("Failed to disable raw mode");    
-    legal_move
+    disable_raw_mode().expect("Failed to disable raw mode");
+    (legal_move, quit)
 }
 
-fn move_player(player: &mut Player, d_pos_x: i32, d_pos_y: i32) {
+fn move_player(player: &mut Player, d_pos_x: i32, d_pos_y: i32, game_state: &mut Game_State, game_board_data: &Vec<Vec<i32>>) -> bool {
     player.pos_x += d_pos_x;
     player.pos_y += d_pos_y;
+
     if player.pos_x < 1 {
         player.pos_x = 1;
     }
@@ -321,6 +332,14 @@ fn move_player(player: &mut Player, d_pos_x: i32, d_pos_y: i32) {
     if player.pos_y >= BOARD_HEIGHT {
         player.pos_y = BOARD_HEIGHT;
     }
+
+    if game_board_data[player.pos_y as usize - 1][player.pos_x as usize - 1] != 0 {
+        player.pos_x -= d_pos_x;
+        player.pos_y -= d_pos_y;
+        return false;
+    }
+
+    true
 }
 
 fn game_tick(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps: &mut Vec<Junk_Heap>, game_board_data: &mut Vec<Vec<i32>>) {
@@ -335,41 +354,77 @@ fn game_tick(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps:
 
     // All dumb_robots should move towards the player in a straight line
     for robot in dumb_robots {
-        if !robot.is_scrap {
-            // First just make sure that this robot is not standing on a junk pile.
-            if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
-                robot.is_scrap = true;
-                player.score += 1;
-                continue;
-            }
+        // Ugly, but it works... ;)
 
-            if robot.pos_x < player.pos_x {
-                robot.pos_x += 1;
-            } else if robot.pos_x > player.pos_x {
-                robot.pos_x -= 1;
-            }
-            if robot.pos_y < player.pos_y {
-                robot.pos_y += 1;
-            } else if robot.pos_y > player.pos_y {
-                robot.pos_y -= 1;
-            } else if robot.pos_y == player.pos_y && robot.pos_x == player.pos_x {
-                player.is_alive = false;
-            }
+        if robot.kind == 1 {
+            if !robot.is_scrap {
+                // First just make sure that this robot is not standing on a junk pile.
+                if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
+                    robot.is_scrap = true;
+                    player.score += 1;
+                    continue;
+                }
 
-            // Add this robot to the game_board if it is a free slot, otherwise turn into scrap
-            if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 0 {
-                game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] = 1;
-            }
-            else if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 1 {
-                robot.is_scrap = true;
-                player.score += 2;
+                if robot.pos_x < player.pos_x {
+                    robot.pos_x += 1;
+                } else if robot.pos_x > player.pos_x {
+                    robot.pos_x -= 1;
+                }
+                if robot.pos_y < player.pos_y {
+                    robot.pos_y += 1;
+                } else if robot.pos_y > player.pos_y {
+                    robot.pos_y -= 1;
+                } else if robot.pos_y == player.pos_y && robot.pos_x == player.pos_x {
+                    player.is_alive = false;
+                }
 
-                // Add a junk heap the heaps array
-                junk_heaps.push(Junk_Heap { pos_x: robot.pos_x, pos_y: robot.pos_y });
+                // Add this robot to the game_board if it is a free slot, otherwise turn into scrap
+                if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 0 {
+                    game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] = 1;
+                }
+                else if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 1 {
+                    robot.is_scrap = true;
+                    player.score += 2;
+
+                    // Add a junk heap the heaps array
+                    junk_heaps.push(Junk_Heap { pos_x: robot.pos_x, pos_y: robot.pos_y });
+                }
+                else if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
+                    robot.is_scrap = true;
+                    player.score += 1;
+                }
             }
-            else if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
-                robot.is_scrap = true;
-                player.score += 1;
+        }
+        else if robot.kind == 2 {
+            if !robot.is_scrap {
+                // First just make sure that this robot is not standing on a junk pile.
+                if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
+                    robot.is_scrap = true;
+                    player.score += 1;
+                    continue;
+                }
+
+                // The robot of kind two can jump as a knight/horse like in chess and always tries to catch the player,
+                // I.e three steps in one direction and two in the other, or two steps in one direction and three in the other
+
+                let mut x_diff = (player.pos_x - robot.pos_x).abs();
+                let mut y_diff = (player.pos_y - robot.pos_y).abs();
+
+                // Add this robot to the game_board if it is a free slot, otherwise turn into scrap
+                if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 0 {
+                    game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] = 1;
+                }
+                else if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 1 {
+                    robot.is_scrap = true;
+                    player.score += 2;
+
+                    // Add a junk heap the heaps array
+                    junk_heaps.push(Junk_Heap { pos_x: robot.pos_x, pos_y: robot.pos_y });
+                }
+                else if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
+                    robot.is_scrap = true;
+                    player.score += 1;
+                }
             }
         }
     }
@@ -381,6 +436,12 @@ fn game_tick(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps:
 }
 
 fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<Dumb_Robot>) {
+    // Because Andreas said so.. We need a prompt to tell people that they are teleporting..
+    //execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
+    //execute!(io::stdout(), Hide).expect("Failed to hide cursor");
+
+    //execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
+
 
     let mut safe_teleport = false;
     // Check if the player has any safe teleports left
@@ -388,6 +449,19 @@ fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<Dumb_Ro
         safe_teleport = true;
         player.safe_teleports -= 1;
     }
+
+    execute!(io::stdout(), MoveTo(BOARD_WIDTH as u16 + 7, PADDING_TOP as u16 + BOARD_HEIGHT as u16)).unwrap();
+    if safe_teleport {
+        print!("Teleporting (safe)...");
+    }
+    else {
+        print!("Teleporting...");
+    }
+
+    println!("");
+
+    // Sleep for 200ms
+    std::thread::sleep(std::time::Duration::from_millis(500));
 
     let mut rng = rand::thread_rng();
     let mut new_x = rng.gen_range(1..BOARD_WIDTH);
@@ -416,6 +490,7 @@ fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<Dumb_Ro
         player.pos_x = new_x;
         player.pos_y = new_y;
     }
+    enable_raw_mode().expect("Failed to enable raw mode");
 }
 
 fn any_robots_left(robots: &Vec<Dumb_Robot>) -> bool {
@@ -433,7 +508,6 @@ fn main() {
     execute!(io::stdout(), Hide).unwrap();
 
     let args = Args::parse();
-    // println!("{:?}", args);
     handle_highscore(&args);
 
     // We need a playing ground..
@@ -461,16 +535,20 @@ fn main() {
     };
 
 
-    while player.is_alive{
+    while player.is_alive {
         // Generate level should generate robots based on the level, and randomize the player position
         generate_level(&game_state, &mut game_board_data, &mut dumb_robots, &mut junk_heaps, &mut player);
 
-        while player.is_alive && any_robots_left(&dumb_robots) {    
+        while player.is_alive && any_robots_left(&dumb_robots) {
             draw_boundaries(&player);
             draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
             if !game_state.wait_for_end {
-                if player_input(&mut player, &dumb_robots, &mut game_state) {
+                let (legal_move, quit) = player_input(&mut player, &dumb_robots, &mut game_state, &game_board_data);
+                if legal_move {
                     game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
+                }
+                if quit {
+                    quit_now();
                 }
             }
             else {
@@ -490,14 +568,77 @@ fn main() {
     }
     add_highscore(&args, &player, &game_state);
 
+    // All is over.. Present the retry prompt..
+    game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
     draw_boundaries(&player);
     draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
 
-    // Just to clean up stuff..
-    execute!(io::stdout(), Show).unwrap();
-    println!("");
-    show_highscore(&args.path, Some(player), Some(&game_state));
-    // add_dummy_score(&args.username, &args.path)
+    execute!(io::stdout(), MoveTo(PADDING_LEFT as u16 + 4, PADDING_TOP as u16)).unwrap();
+    println!("[You did not make it. You were caught by the robots..]");
+
+    // Sleep for 1000ms
+    std::thread::sleep(std::time::Duration::from_millis(1000));
+
+    if retry_query() {
+        main();
+    }
+    else {
+        show_highscore(&args.path, Some(player), Some(&game_state));
+        quit_now();
+        std::process::exit(0);
+    }
+
+}
+
+// Retry function takes either a y/n input and returns a boolean
+fn retry_query() -> bool {
+    execute!(io::stdout(), MoveTo(BOARD_WIDTH as u16 + 7, PADDING_TOP as u16 + BOARD_HEIGHT as u16)).unwrap();
+    print!("Do you want to try again? (y/n) ");
+
+    // Sleep for a 1000ms
+
+    let mut try_again = false;
+    io::stdout().flush().unwrap();
+
+    enable_raw_mode().expect("Failed to enable raw mode");
+
+    match read().expect("Failed to read event") {
+        Event::Key(event) => {
+            match event.code {
+                KeyCode::Char(c) => {
+                    match c {
+                        'y' => try_again = true,    // We want to retry
+                        'Y' => try_again = true,    // We want to retry (should caps lock be initiated)
+                        'n' => try_again = false,   // We do not want to retry
+                        'N' => try_again = false,   // We do not want to retry (should caps lock be initiated)
+                        _ => { try_again = false; retry_query(); }
+                    }
+                },
+                _ => ()
+            }
+        },
+        _ => try_again = false
+    }
+
+    disable_raw_mode().expect("Failed to disable raw mode");
+
+    execute!(io::stdout(), MoveTo(BOARD_WIDTH as u16 + 4, BOARD_HEIGHT as u16 + 4)).unwrap();
+
+    try_again
+}
+
+fn no_of_dumb_robots(level: i32) -> i32 {
+    if level < 2 {
+        INITIAL_ROBOTS
+    }
+    else {
+        let mut robots = INITIAL_ROBOTS + (level - 2) * 5;
+        if robots > MAX_ROBOTS {
+            robots = MAX_ROBOTS;
+        }
+        robots
+    }
+
 }
 
 // Generate level
@@ -512,7 +653,7 @@ fn generate_level(game_state: &Game_State, game_board_data: &mut Vec<Vec<i32>>, 
     junk_heaps.clear();
 
     // Add dumb robots. 20 per level (Move to other function)
-    for i in 0 .. game_state.level * 20 {
+    for i in 0 .. no_of_dumb_robots(game_state.level) {
 
         let mut occupied = true;
         let mut p_x = 0;
