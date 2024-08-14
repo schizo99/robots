@@ -626,14 +626,17 @@ fn retry_query() -> bool {
 }
 
 fn no_of_dumb_robots(level: i32) -> i32 {
-    if level < 3 {
-        return INITIAL_ROBOTS;
+    if level < 2 {
+        INITIAL_ROBOTS
     }
-    else if level <= 5 && INITIAL_ROBOTS + (level - 3  * 5) > MAX_ROBOTS {
-        return INITIAL_ROBOTS + (level - 3 * 5);
-    } else {
-        return MAX_ROBOTS;
+    else {
+        let mut robots = INITIAL_ROBOTS + (level - 2) * 5;
+        if robots > MAX_ROBOTS {
+            robots = MAX_ROBOTS;
+        }
+        robots
     }
+
 }
 
 // Generate level
