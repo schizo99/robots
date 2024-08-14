@@ -215,7 +215,7 @@ fn draw_active_objects(player: &Player, dumb_robots: &Vec<Dumb_Robot>, junk_heap
 
     // Draw safe teleports
     execute!(io::stdout(), MoveTo(BOARD_WIDTH as u16 + 11, PADDING_TOP as u16 + 12)).unwrap();
-    print!("safe teleport! ({})    ", player.safe_teleports);
+    print!("safe teleport ({})    ", player.safe_teleports);
 
     // Draw the level and some more data
     execute!(io::stdout(), MoveTo(PADDING_LEFT as u16 + 3, PADDING_TOP as u16 + BOARD_HEIGHT as u16 + 2)).unwrap();
@@ -258,7 +258,7 @@ fn draw_boundaries(player: &Player) {
         "",
         "w:  wait for end",
         "t:  teleport (unsafe)",
-        "s:  safe teleport! (3)",
+        "s:  safe teleport (3)",
         ".:  wait one turn",
         "q:  quit",
         "",
@@ -267,7 +267,7 @@ fn draw_boundaries(player: &Player) {
         "+:  robot",
         "&:  super robot",
         "N:  killer robot",
-        "#   junk heap",
+        "#:  junk heap",
         "@:  you",
         "",
         "Score:  0",
