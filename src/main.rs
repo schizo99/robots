@@ -105,9 +105,10 @@ fn show_highscore(path: &str, player: Option<Player>, state: Option<&Game_State>
     execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
     execute!(io::stdout(), Hide).expect("Failed to hide cursor");
     if end_score.username != "show_highscore" {
-        println!("{}\n<You scored {} points and made it to level {}>", &content, end_score.score, game_state.level);
+        println!(" {}\n  You scored {} points and made it to level {}", &content, end_score.score, game_state.level);
+        println!("  (Press any key to continue...)");
     } else {
-        println!("{}\n<More>", &content);
+        println!("{}\n  (Press any key to continue...)", &content);
     }
     enable_raw_mode().expect("Failed to enable raw mode");
     read().expect("Failed to read event");
@@ -148,13 +149,13 @@ fn top_highscores(path: &str) -> Vec<String> {
     highscores.sort_by(|a, b| b.1.cmp(&a.1));
     let mut result = vec![];
     result.push(format!("Top 10 highscores:"));
-    result.push(format!("{}", "-".repeat(padding + 15)));
-    result.push(format!("Player{}\tScore\tLevel\t", " ".repeat(padding-6)));
-    result.push(format!("{}", "-".repeat(padding + 15)));
+    result.push(format!(" {}", "-".repeat(padding + 30)));
+    result.push(format!(" Player{}\tScore\t\tLevel\t", " ")); // .repeat(padding-6)));
+    result.push(format!(" {}", "-".repeat(padding + 30)));
     for (i, (username, score, level)) in highscores.iter().take(10).enumerate() {
-        result.push(format!("{}{}\t{}\t{}", username," ".repeat(padding - username.len()), score, level));
+        result.push(format!("   {}{}\t {}\t\t {}", username," ".repeat(padding - username.len()), score, level));
     }
-    result.push(format!("{}", "-".repeat(padding + 15)));
+    result.push(format!(" {}", "-".repeat(padding + 30)));
     return result;
 }
 
@@ -531,9 +532,8 @@ fn main() {
         is_alive: true,
         pos_x: 0,
         pos_y: 0,
-        safe_teleports: 3,
+        safe_teleports: 2,
     };
-
 
     while player.is_alive {
         // Generate level should generate robots based on the level, and randomize the player position
@@ -647,6 +647,9 @@ fn generate_level(game_state: &Game_State, game_board_data: &mut Vec<Vec<i32>>, 
 
     // Clear the game board..
     game_board_data.iter_mut().for_each(|row| row.iter_mut().for_each(|cell| *cell = 0));
+
+    // Add one additional safe teleport per level
+    player.safe_teleports += 1;
 
     // Clear the old junk piles vector and the dumb_robots one
     dumb_robots.clear();
