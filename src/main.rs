@@ -15,9 +15,6 @@ const PADDING_TOP: i32 = 1;
 const BOARD_WIDTH: i32 = 60;
 const BOARD_HEIGHT : i32 = 24;
 
-const MAX_ROBOTS: i32 = 40;
-const INITIAL_ROBOTS: i32 = 20;
-
 #[derive(Clone, Copy)]
 struct Game_State {
     turn: i32,
@@ -189,7 +186,16 @@ fn draw_active_objects(player: &Player, dumb_robots: &Vec<Dumb_Robot>, junk_heap
     for robot in dumb_robots {
         execute!(io::stdout(), MoveTo(robot.pos_x as u16 + PADDING_LEFT as u16, robot.pos_y as u16 + PADDING_TOP as u16)).unwrap();
         if !robot.is_scrap {
-            print!("+");
+            // Separate the robots by kind
+            if robot.kind == 1 {
+                print!("+");
+            }
+            else if robot.kind == 2 {
+                print!("&");
+            }
+            else if robot.kind == 3 {
+                print!("N");
+            }
         }
     }
 
@@ -417,11 +423,34 @@ fn game_tick(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps:
                     continue;
                 }
 
-                // The robot of kind two can jump as a knight/horse like in chess and always tries to catch the player,
-                // I.e three steps in one direction and two in the other, or two steps in one direction and three in the other
+                // The horse robot can move three steps forward and two to the side
+                let mut moves: Vec<(i32, i32)> = vec![(3, 2), (3, -2), (-3, 2), (-3, -2), (2, 3), (2, -3), (-2, 3), (-2, -3)];
 
-                let mut x_diff = (player.pos_x - robot.pos_x).abs();
-                let mut y_diff = (player.pos_y - robot.pos_y).abs();
+                // Iterate over the moves vector and calculate the euclidian distance to the player using the euclidian distance
+                let mut shortest_distance = 1000;
+                let mut shortest_move = (0, 0);
+
+                for candidate_move in moves {
+                    let new_x = robot.pos_x + candidate_move.0;
+                    let new_y = robot.pos_y + candidate_move.1;
+
+                    // Continue if the new position is outside the board
+                    if new_x < 1 || new_x > BOARD_WIDTH || new_y < 1 || new_y > BOARD_HEIGHT {
+                        continue;
+                    }
+
+                    // Calculate the distance to the player based on the current move. If it is the shortest move, update shortest move
+                    let distance = eucledian_distance(player, &Dumb_Robot { pos_x: new_x, pos_y: new_y, is_scrap: false, id: 0, kind: 3 });
+
+                    if distance <= shortest_distance {
+                       shortest_move = candidate_move;
+                       shortest_distance = distance;
+                    }
+                }
+
+                // Move the robot to the shortest move
+                robot.pos_x += shortest_move.0;
+                robot.pos_y += shortest_move.1;
 
                 // Add this robot to the game_board if it is a free slot, otherwise turn into scrap
                 if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 0 {
@@ -440,12 +469,97 @@ fn game_tick(player: &mut Player, dumb_robots: &mut Vec<Dumb_Robot>, junk_heaps:
                 }
             }
         }
+        else if robot.kind == 3 {
+            // This robot moves like a queen in chess. It should try to reduce the distance to the player with every move
+            if !robot.is_scrap {
+                // First just make sure that this robot is not standing on a junk pile.
+                if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 2 {
+                    robot.is_scrap = true;
+                    player.score += 1;
+                    continue;
+                }
+
+                let mut moves: Vec<(i32, i32)> = vec![(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)];
+                
+                // Iterate over the moves vector and calculate the euclidian distance to the player using the euclidian distance
+                let mut shortest_distance = 1000;
+                let mut shortest_move = (0, 0);
+
+                for candidate_move in moves {
+                    let new_x = robot.pos_x + candidate_move.0;
+                    let new_y = robot.pos_y + candidate_move.1;
+
+                    // Continue if the new position is outside the board
+                    if new_x < 1 || new_x > BOARD_WIDTH || new_y < 1 || new_y > BOARD_HEIGHT {
+                        continue;
+                    }
+
+                    // Calculate the distance to the player based on the current move. If it is the shortest move, update shortest move
+                    let distance = eucledian_distance(player, &Dumb_Robot { pos_x: new_x, pos_y: new_y, is_scrap: false, id: 0, kind: 3 });
+
+                    if distance <= shortest_distance {
+                       shortest_move = candidate_move;
+                       shortest_distance = distance;
+                    }
+                }
+
+                // We now have a unit vector in which direction to move. Loop this move until you either hit the
+                // players x_position and/or y_position
+                let mut new_x = robot.pos_x;
+                let mut new_y = robot.pos_y;
+
+                let mut keep_moving = true;
+
+                while keep_moving {
+                    new_x += shortest_move.0;
+                    new_y += shortest_move.1;
+
+                    // Check that new new position is withint the board
+                    if new_x < 1 || new_x > BOARD_WIDTH || new_y < 1 || new_y > BOARD_HEIGHT {
+                        break;
+                    }
+
+                    if new_x == player.pos_x && new_y == player.pos_y {
+                        player.is_alive = false;
+                        robot.pos_x = new_x;
+                        robot.pos_y = new_y;
+                    }
+
+                    // Check the board for this position to make sure that it is a free spot
+                    if game_board_data[new_y as usize - 1][new_x as usize - 1] == 0 {
+                        robot.pos_x = new_x;
+                        robot.pos_y = new_y;
+                    }
+                    else if game_board_data[new_y as usize - 1][new_x as usize - 1] == 1 {
+                        robot.is_scrap = true;
+                        player.score += 2;
+
+                        // Add a junk heap the heaps array
+                        junk_heaps.push(Junk_Heap { pos_x: robot.pos_x, pos_y: robot.pos_y });
+                    }
+                    else if game_board_data[new_y as usize - 1][new_x as usize - 1] == 2 {
+                        robot.is_scrap = true;
+                        player.score += 1;
+                    }
+
+                    if player.pos_x == robot.pos_x || player.pos_y == robot.pos_y && player.is_alive{
+                        keep_moving = false;                        
+                    }
+                }
+            }
+        } 
     }
 
     // Also make sure that the player is not standing on a newly created junk pile..
     if game_board_data[player.pos_y as usize - 1][player.pos_x as usize - 1] != 0 {
         player.is_alive = false;
     }
+}
+
+fn eucledian_distance(player: &Player, robot: &Dumb_Robot) -> i32 {
+    // Calculate the Eucledian distance between the player and the robot
+    // ((player.pos_x as f64 - robot.pos_x as f64).powi(2) + (player.pos_y as f64 - robot.pos_y as f64).powi(2)).sqrt() as i32
+    (player.pos_x - robot.pos_x).abs() + (player.pos_y - robot.pos_y).abs()
 }
 
 fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<Dumb_Robot>) {
@@ -641,16 +755,32 @@ fn retry_query() -> bool {
 
 fn no_of_dumb_robots(level: i32) -> i32 {
     if level < 2 {
-        INITIAL_ROBOTS
+        20
     }
     else {
-        let mut robots = INITIAL_ROBOTS + (level - 2) * 5;
-        if robots > MAX_ROBOTS {
-            robots = MAX_ROBOTS;
-        }
+        let mut robots = 20 + (level - 2) * 5;
         robots
     }
+}
 
+fn no_of_super_robots(level: i32) -> i32 {
+    if level < 5 {
+        0
+    }
+    else {
+        let mut robots = 1 + (level - 4) * 2;
+        robots
+    }
+}
+
+fn no_of_killer_robots(level: i32) -> i32 {
+    if level < 9 {
+        0
+    }
+    else {
+        let mut robots = 1 + ((level - 10) * 2) + 1;
+        robots
+    }
 }
 
 // Generate level
@@ -667,7 +797,7 @@ fn generate_level(game_state: &Game_State, game_board_data: &mut Vec<Vec<i32>>, 
     dumb_robots.clear();
     junk_heaps.clear();
 
-    // Add dumb robots. 20 per level (Move to other function)
+    // Add dumb robots.
     for i in 0 .. no_of_dumb_robots(game_state.level) {
 
         let mut occupied = true;
@@ -684,6 +814,46 @@ fn generate_level(game_state: &Game_State, game_board_data: &mut Vec<Vec<i32>>, 
         }
 
         dumb_robots.push(Dumb_Robot { pos_x: p_x, pos_y: p_y, is_scrap: false, id: i, kind: 1 });
+        // Add the robot to the game board array
+        game_board_data[p_y as usize - 1][p_x as usize - 1] = 1;
+    }
+
+    // Add super robots.
+    for i in 0 .. no_of_super_robots(game_state.level) {
+        let mut occupied = true;
+        let mut p_x = 0;
+        let mut p_y = 0;
+
+        while occupied {
+            p_x = rng.gen_range(1..BOARD_WIDTH);
+            p_y = rng.gen_range(1..BOARD_HEIGHT);
+
+            if game_board_data[p_y as usize - 1][p_x as usize - 1] == 0 {
+                occupied = false;
+            }
+        }
+
+        dumb_robots.push(Dumb_Robot { pos_x: p_x, pos_y: p_y, is_scrap: false, id: i, kind: 2 });
+        // Add the robot to the game board array
+        game_board_data[p_y as usize - 1][p_x as usize - 1] = 1;
+    }    
+
+    // Add killer robots.
+    for i in 0 .. no_of_killer_robots(game_state.level) {
+        let mut occupied = true;
+        let mut p_x = 0;
+        let mut p_y = 0;
+
+        while occupied {
+            p_x = rng.gen_range(1..BOARD_WIDTH);
+            p_y = rng.gen_range(1..BOARD_HEIGHT);
+
+            if game_board_data[p_y as usize - 1][p_x as usize - 1] == 0 {
+                occupied = false;
+            }
+        }
+
+        dumb_robots.push(Dumb_Robot { pos_x: p_x, pos_y: p_y, is_scrap: false, id: i, kind: 3 });
         // Add the robot to the game board array
         game_board_data[p_y as usize - 1][p_x as usize - 1] = 1;
     }
