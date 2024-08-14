@@ -63,6 +63,18 @@ struct Args {
 
 }
 
+fn add_highscore(args: &Args, player: &Player, state: &Game_State) {
+    let mut file = OpenOptions::new()
+        .append(true)
+        .open(&args.path)
+        .unwrap();
+
+    let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+    if let Err(e) = writeln!(file, "{};{};{};{}", player.username, player.score, state.level,timestamp) {
+        eprintln!("Couldn't write to file: {}", e);
+    }
+}
+
 fn validate_highscore_file(path: &str) {
     println!("Validating highscore file at path: {}", path);
     match std::fs::read_to_string(path) {
@@ -82,19 +94,23 @@ fn validate_highscore_file(path: &str) {
     }
 }
 
-// fn add_dummy_score(username: &str, path: &str) {
-//     let mut file = OpenOptions::new()
-//         .append(true)
-//         .open(path)
-//         .unwrap();
-
-//     println!("Adding dummy score for user: {}", username);
-//     let score = rand::thread_rng().gen_range(0..100);
-//     let timestamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-//     if let Err(e) = writeln!(file, "{};{};{}", username, score, timestamp) {
-//         eprintln!("Couldn't write to file: {}", e);
-//     }
-// }
+fn show_highscore(path: &str, player: Option<Player>, state: Option<&Game_State>) {
+    let end_score = player.unwrap_or(Player { username: "show_highscore".to_string(), score: 0, is_alive: true, pos_x: 0, pos_y: 0, safe_teleports: 0 });
+    let game_state = state.unwrap_or(&Game_State { turn: 0, level: 0, wait_for_end: false });
+    let content = top_highscores(&path).join("\n");
+    execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
+    execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
+    execute!(io::stdout(), Hide).expect("Failed to hide cursor");
+    if end_score.username != "show_highscore" {
+        println!("{}\n<You scored {} points and made it to level {}>", &content, end_score.score, game_state.level);
+    } else {
+        println!("{}\n<More>", &content);
+    }
+    enable_raw_mode().expect("Failed to enable raw mode");
+    read().expect("Failed to read event");
+    execute!(io::stdout(), Show).expect("Failed to show cursor");
+    disable_raw_mode().expect("Failed to disable raw mode");
+}
 
 fn handle_highscore(args: &Args) {
     let username = &args.username;
@@ -105,36 +121,35 @@ fn handle_highscore(args: &Args) {
     let path = &args.path;
     validate_highscore_file(&path);
     if args.show_highscore {
-        let content = top_highscores(&path).join("\n");
-        execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
-        execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
-        execute!(io::stdout(), Hide).expect("Failed to hide cursor");
-        println!("{}\n<More>", &content);
-        execute!(io::stdout(), Show).expect("Failed to show cursor");
-        enable_raw_mode().expect("Failed to enable raw mode");
-        read().expect("Failed to read event");
-        disable_raw_mode().expect("Failed to disable raw mode");
+        show_highscore(&path, None, None);
         std::process::exit(0);
     }
 }
 
 fn top_highscores(path: &str) -> Vec<String> {
-    let mut highscores: Vec<(String, i32)> = Vec::new();
+    let mut highscores: Vec<(String, i32, i32)> = Vec::new();
     let content = std::fs::read_to_string(path).unwrap();
     for line in content.lines() {
         let parts: Vec<&str> = line.split(";").collect();
-        if parts.len() == 3 {
+        if parts.len() == 4 {
             let username = parts[0];
             let score = parts[1].parse::<i32>().unwrap();
-            highscores.push((username.to_string(), score));
+            let level = parts[2].parse::<i32>().unwrap();
+            highscores.push((username.to_string(), score, level));
         }
     }
+    let padding = highscores.iter().map(|(username, _, _)| username.len()).max().unwrap_or(0);
     highscores.sort_by(|a, b| b.1.cmp(&a.1));
     let mut result = vec![];
+    result.push(format!("{}", "-".repeat(padding + 15)));
     result.push(format!("Top 10 highscores:"));
-    for (i, (username, score)) in highscores.iter().take(10).enumerate() {
-        result.push(format!("{}. {}: {}", i + 1, username, score));
+    result.push(format!("{}", "-".repeat(padding + 15)));
+    result.push(format!("Player{}\tScore\tLevel\t", " ".repeat(padding-6)));
+    result.push(format!("{}", "-".repeat(padding + 15)));
+    for (i, (username, score, level)) in highscores.iter().take(10).enumerate() {
+        result.push(format!("{}{}\t{}\t{}", username," ".repeat(padding - username.len()), score, level));
     }
+    result.push(format!("{}", "-".repeat(padding + 15)));
     return result;
 }
 
@@ -292,7 +307,7 @@ fn player_input(player: &mut Player, robots: &Vec<Dumb_Robot>, game_state: &mut 
         _ => {}
     }
 
-    disable_raw_mode().expect("Failed to disable raw mode");    
+    disable_raw_mode().expect("Failed to disable raw mode");
     (legal_move, quit)
 }
 
@@ -487,9 +502,8 @@ fn any_robots_left(robots: &Vec<Dumb_Robot>) -> bool {
 fn main() {
     execute!(io::stdout(), Hide).unwrap();
 
-    // let args = Args::parse();
-    // println!("{:?}", args);
-    // handle_highscore(&args);
+    let args = Args::parse();
+    handle_highscore(&args);
 
     // We need a playing ground..
     let mut rng = rand::thread_rng();
@@ -516,11 +530,11 @@ fn main() {
     };
 
 
-    while player.is_alive{
+    while player.is_alive {
         // Generate level should generate robots based on the level, and randomize the player position
         generate_level(&game_state, &mut game_board_data, &mut dumb_robots, &mut junk_heaps, &mut player);
 
-        while player.is_alive && any_robots_left(&dumb_robots) {    
+        while player.is_alive && any_robots_left(&dumb_robots) {
             draw_boundaries(&player);
             draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
             if !game_state.wait_for_end {
@@ -544,9 +558,10 @@ fn main() {
                 // Increase the level (and perhaps write something)
                 game_state.level += 1;
                 generate_level(&game_state, &mut game_board_data, &mut dumb_robots, &mut junk_heaps, &mut player);
-            }   
+            }
         }
     }
+    add_highscore(&args, &player, &game_state);
 
     // All is over.. Present the retry prompt..
     game_tick(&mut player, &mut dumb_robots, &mut junk_heaps, &mut game_board_data);
@@ -563,18 +578,11 @@ fn main() {
         main();
     }
     else {
+        show_highscore(&args.path, Some(player), Some(&game_state));
         quit_now();
         std::process::exit(0);
     }
 
-
-    //draw_boundaries(&player);
-    //draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
-
-    // Just to clean up stuff..
-    quit_now();
-
-    // add_dummy_score(&args.username, &args.path)
 }
 
 // Retry function takes either a y/n input and returns a boolean
