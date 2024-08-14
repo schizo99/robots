@@ -7,6 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    name: Build and cargo fmt check
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
