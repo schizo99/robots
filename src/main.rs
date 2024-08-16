@@ -37,7 +37,6 @@ struct DumbRobot {
     pos_y: i32,
     is_scrap: bool,
     kind: i32,
-    id: i32,
 }
 
 #[derive(Clone)]
