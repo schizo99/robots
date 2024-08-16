@@ -19,3 +19,12 @@ jobs:
       run: cargo build --release --target x86_64-unknown-linux-gnu
       env:
         RUSTFLAGS: "-C target-feature=+crt-static"
+
+    - name: Create tarball
+      run: tar -czf robots_x86_64-linux.tar.gz LICENSE README.md -C target/x86_64-unknown-linux-gnu/release robots
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: robots_x86_64-linux
+        path: robots_x86_64-linux.tar.gz
