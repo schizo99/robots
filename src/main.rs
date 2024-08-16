@@ -1027,7 +1027,7 @@ fn generate_level(
     junk_heaps.clear();
 
     // Add dumb robots.
-    for i in 0..no_of_dumb_robots(gamestate.level) {
+    for _ in 0..no_of_dumb_robots(gamestate.level) {
         let mut occupied = true;
         let mut p_x = 0;
         let mut p_y = 0;
@@ -1052,7 +1052,7 @@ fn generate_level(
     }
 
     // Add super robots.
-    for i in 0..no_of_super_robots(gamestate.level) {
+    for _ in 0..no_of_super_robots(gamestate.level) {
         let mut occupied = true;
         let mut p_x = 0;
         let mut p_y = 0;
@@ -1077,7 +1077,7 @@ fn generate_level(
     }
 
     // Add killer robots.
-    for i in 0..no_of_killer_robots(gamestate.level) {
+    for _ in 0..no_of_killer_robots(gamestate.level) {
         let mut occupied = true;
         let mut p_x = 0;
         let mut p_y = 0;
