@@ -222,7 +222,10 @@ fn move_cursor_padded(x: i32, y: i32) {
 }
 
 fn draw_active_objects(
-    player: &Player, dumb_robots: &Vec<DumbRobot>, junk_heaps: &Vec<JunkHeap>, item: &Item,
+    player: &Player,
+    dumb_robots: &Vec<DumbRobot>,
+    junk_heaps: &Vec<JunkHeap>,
+    item: &Item,
 ) {
     // Draw the item, if it is visible and not picked up
     if item.visible && !item.picked_up {
@@ -285,7 +288,9 @@ fn alive_robots(robots: &Vec<DumbRobot>) -> i32 {
 
 // A very busy redraw function. However. This is the final version!
 fn draw_boundaries(
-    player: &Player, gamestate: &GameState, junk_heaps: &Vec<JunkHeap>,
+    player: &Player,
+    gamestate: &GameState,
+    junk_heaps: &Vec<JunkHeap>,
     dumb_robots: &Vec<DumbRobot>,
 ) {
     execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
@@ -359,7 +364,9 @@ fn draw_boundaries(
 }
 
 fn player_input(
-    player: &mut Player, robots: &Vec<DumbRobot>, gamestate: &mut GameState,
+    player: &mut Player,
+    robots: &Vec<DumbRobot>,
+    gamestate: &mut GameState,
     game_board_data: &Vec<Vec<i32>>,
 ) -> (bool, bool) {
     enable_raw_mode().expect("Failed to enable raw mode");
@@ -417,7 +424,10 @@ fn player_input(
 }
 
 fn move_player(
-    player: &mut Player, d_pos_x: i32, d_pos_y: i32, game_board_data: &Vec<Vec<i32>>,
+    player: &mut Player,
+    d_pos_x: i32,
+    d_pos_y: i32,
+    game_board_data: &Vec<Vec<i32>>,
 ) -> bool {
     player.pos_x += d_pos_x;
     player.pos_y += d_pos_y;
@@ -445,8 +455,12 @@ fn move_player(
 }
 
 fn game_tick(
-    player: &mut Player, dumb_robots: &mut Vec<DumbRobot>, junk_heaps: &mut Vec<JunkHeap>,
-    game_board_data: &mut Vec<Vec<i32>>, item: &mut Item, game_state: &mut GameState,
+    player: &mut Player,
+    dumb_robots: &mut Vec<DumbRobot>,
+    junk_heaps: &mut Vec<JunkHeap>,
+    game_board_data: &mut Vec<Vec<i32>>,
+    item: &mut Item,
+    game_state: &mut GameState,
 ) {
     // Clear the game board..
     game_board_data
@@ -874,14 +888,14 @@ fn main() {
     let args = Args::parse();
     handle_highscore(&args);
 
-    // We need a playing ground..
-    //let mut rng = rand::thread_rng();
-
     let mut game_board_data: Vec<Vec<i32>> =
         vec![vec![0; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize];
 
     let mut dumb_robots: Vec<DumbRobot> = Vec::new();
     let mut junk_heaps: Vec<JunkHeap> = Vec::new();
+
+    // Show the splash
+    splash_screen();
 
     // Basic setup
     let mut gamestate = GameState {
@@ -1079,8 +1093,12 @@ fn no_of_killer_robots(level: i32) -> i32 {
 
 // Generate level
 fn generate_level(
-    gamestate: &GameState, game_board_data: &mut Vec<Vec<i32>>, dumb_robots: &mut Vec<DumbRobot>,
-    junk_heaps: &mut Vec<JunkHeap>, player: &mut Player, item: &mut Item,
+    gamestate: &GameState,
+    game_board_data: &mut Vec<Vec<i32>>,
+    dumb_robots: &mut Vec<DumbRobot>,
+    junk_heaps: &mut Vec<JunkHeap>,
+    player: &mut Player,
+    item: &mut Item,
 ) {
     let mut rng = rand::thread_rng();
 
@@ -1196,4 +1214,56 @@ fn generate_level(
 
     player.pos_x = p_x;
     player.pos_y = p_y;
+}
+
+fn splash_screen() {
+    let splash_screen = vec![
+        "/------------------------------------\\", 
+        "|                                    |   Welcome to the game!",
+        "|               ROBOTS               |",
+        "|                                    |   The game is simple. You are the player, represented by the @ symbol",
+        "|      .--.      .--.      .--.      |   You are surrounded by robots, represented by +, &, and N.",
+        "|     /    \\    /    \\    /    \\     |   The robots will try to catch you. If they do, you lose.",
+        "|    |  []  |  |  []  |  |  []  |    |",
+        "|    |      |  |      |  |      |    |   You can move in the following directions:",
+        "|    |______|  |______|  |______|    |",
+        "|                                    |   y k u",
+        "|        .----.       / \\            |    \\|/          (You can also pick up objects, represented by S and B.",
+        "|       /      \\     /   \\           |   h- -l         S will make you invincible for a short (?) period of time.",
+        "|      |  O  O  |   |  O  |          |    /|\\          B will give you an extra bomb.)",
+        "|      |   \\/   |   |     |          |   b j n",
+        "|       \\      /     \\___/           |",
+        "|        `----'                      |   You can teleport (t), safe teleport (s) if charged,",
+        "|                                    |   use any of your bombs (a), wait for the level end (w),",
+        "|                                    |   or quit the game (q).",
+        "\\---------- ASCII art by: Chat-GPT --/",
+        ];
+
+    // Print the vector with padding...
+
+    // Clear the screen
+    execute!(io::stdout(), Clear(ClearType::All)).unwrap();
+
+    // Set the cursor to the top left corner
+    execute!(io::stdout(), MoveTo(0, 0)).unwrap();
+
+    print!("{}", "\n".repeat(PADDING_TOP as usize));
+    
+    for (line, i) in splash_screen.iter().zip(0..) {
+        print!("{}", " ".repeat(PADDING_LEFT as usize));
+        println!("{}", line);
+    }
+    
+    // Sleep for 5000ms
+    std::thread::sleep(std::time::Duration::from_millis(2000));
+    
+    // Set the cursor to the top left corner
+    execute!(io::stdout(), MoveTo(74 + PADDING_LEFT as u16, 18 + PADDING_TOP as u16)).unwrap();
+
+    println!(" (Press any key to continue...)");
+    
+    // Wait for any key input
+    enable_raw_mode().expect("Failed to enable raw mode");
+    let _ = read().expect("Failed to read event");
+    disable_raw_mode().expect("Failed to disable raw mode");
 }
