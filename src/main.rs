@@ -195,12 +195,7 @@ fn quit_now() {
     std::process::exit(0);
 }
 
-fn draw_active_objects(
-    player: &Player,
-    dumb_robots: &Vec<DumbRobot>,
-    junk_heaps: &Vec<JunkHeap>,
-    gamestate: &GameState,
-) {
+fn draw_active_objects(player: &Player, dumb_robots: &Vec<DumbRobot>, junk_heaps: &Vec<JunkHeap>) {
     // Draw the player
     execute!(
         io::stdout(),
@@ -262,56 +257,6 @@ fn draw_active_objects(
         print!("%");
     }
 
-    // Draw the score
-    execute!(
-        io::stdout(),
-        MoveTo(
-            BOARD_WIDTH as u16 + 7,
-            PADDING_TOP as u16 + BOARD_HEIGHT as u16
-        )
-    )
-    .unwrap();
-    print!("Score: {}    ", player.score);
-
-    // Draw safe teleports
-    execute!(
-        io::stdout(),
-        MoveTo(BOARD_WIDTH as u16 + 11, PADDING_TOP as u16 + 12)
-    )
-    .unwrap();
-    print!("safe teleport ({})    ", player.safe_teleports);
-
-    // Draw the level and some more data
-    execute!(
-        io::stdout(),
-        MoveTo(
-            PADDING_LEFT as u16 + 3,
-            PADDING_TOP as u16 + BOARD_HEIGHT as u16 + 2
-        )
-    )
-    .unwrap();
-    print!(" Level: {} ", gamestate.level);
-
-    execute!(
-        io::stdout(),
-        MoveTo(
-            PADDING_LEFT as u16 + 24,
-            PADDING_TOP as u16 + BOARD_HEIGHT as u16 + 2
-        )
-    )
-    .unwrap();
-    print!(" Robots: {} ", alive_robots(dumb_robots));
-
-    execute!(
-        io::stdout(),
-        MoveTo(
-            PADDING_LEFT as u16 + 44,
-            PADDING_TOP as u16 + BOARD_HEIGHT as u16 + 2
-        )
-    )
-    .unwrap();
-    print!(" Junk piles: {} ", junk_heaps.len());
-
     execute!(
         io::stdout(),
         MoveTo(BOARD_WIDTH as u16 + 4, BOARD_HEIGHT as u16 + 4)
@@ -330,9 +275,19 @@ fn alive_robots(robots: &Vec<DumbRobot>) -> i32 {
 }
 
 // A very busy redraw function. However. This is the final version!
-fn draw_boundaries(player: &Player) {
+fn draw_boundaries(
+    player: &Player,
+    gamestate: &GameState,
+    junk_heaps: &Vec<JunkHeap>,
+    dumb_robots: &Vec<DumbRobot>,
+) {
     execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
     execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
+    let score_str = format!("Score:  {}", player.score);
+    let safe_teleports_str = format!("s:  safe teleport ({})", player.safe_teleports);
+    let level_str = format!("Level:  {}", gamestate.level);
+    let alive_robots_str = format!("Robots:  {}", alive_robots(dumb_robots));
+    let junk_piles_str = format!("Junk piles:  {}", junk_heaps.len());
     let menu = vec![
         "Directions:",
         "",
@@ -346,7 +301,7 @@ fn draw_boundaries(player: &Player) {
         "",
         "w:  wait for end",
         "t:  teleport (unsafe)",
-        "s:  safe teleport (3)",
+        safe_teleports_str.as_str(),
         ".:  wait one turn",
         "q:  quit",
         "",
@@ -358,7 +313,7 @@ fn draw_boundaries(player: &Player) {
         "#:  junk heap",
         "@:  you",
         "",
-        "Score:  0",
+        score_str.as_str(),
     ];
     for (line, i) in menu.iter().zip(0..) {
         execute!(
@@ -389,6 +344,7 @@ fn draw_boundaries(player: &Player) {
     print!("\\");
     print!("{}", "-".repeat(BOARD_WIDTH as usize));
     println!("/");
+    println!("\t{}\t{}\t{}", level_str, junk_piles_str, alive_robots_str);
 }
 
 fn player_input(
@@ -408,28 +364,28 @@ fn player_input(
                 KeyCode::Char(c) => {
                     match c {
                         'y' => {
-                            legal_move = move_player(player, -1, -1, gamestate, game_board_data);
+                            legal_move = move_player(player, -1, -1, game_board_data);
                         } // Move diagonally up and left
                         'k' => {
-                            legal_move = move_player(player, 0, -1, gamestate, game_board_data);
+                            legal_move = move_player(player, 0, -1, game_board_data);
                         } // Move up
                         'u' => {
-                            legal_move = move_player(player, 1, -1, gamestate, game_board_data);
+                            legal_move = move_player(player, 1, -1, game_board_data);
                         } // Move diagonally up and right
                         'h' => {
-                            legal_move = move_player(player, -1, 0, gamestate, game_board_data);
+                            legal_move = move_player(player, -1, 0, game_board_data);
                         } // Move left
                         'l' => {
-                            legal_move = move_player(player, 1, 0, gamestate, game_board_data);
+                            legal_move = move_player(player, 1, 0, game_board_data);
                         } // Move right,
                         'b' => {
-                            legal_move = move_player(player, -1, 1, gamestate, game_board_data);
+                            legal_move = move_player(player, -1, 1, game_board_data);
                         } // Move diagonally down and left
                         'j' => {
-                            legal_move = move_player(player, 0, 1, gamestate, game_board_data);
+                            legal_move = move_player(player, 0, 1, game_board_data);
                         } // Nove down
                         'n' => {
-                            legal_move = move_player(player, 1, 1, gamestate, game_board_data);
+                            legal_move = move_player(player, 1, 1, game_board_data);
                         } // Move diagonally down and right
                         'q' => {
                             player.is_alive = false;
@@ -459,6 +415,7 @@ fn player_input(
     }
 
     disable_raw_mode().expect("Failed to disable raw mode");
+    gamestate.turn += 1;
     (legal_move, quit)
 }
 
@@ -466,7 +423,6 @@ fn move_player(
     player: &mut Player,
     d_pos_x: i32,
     d_pos_y: i32,
-    gamestate: &mut GameState,
     game_board_data: &Vec<Vec<i32>>,
 ) -> bool {
     player.pos_x += d_pos_x;
@@ -739,10 +695,6 @@ fn eucledian_distance(player: &Player, robot: &DumbRobot) -> i32 {
 
 fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<DumbRobot>) {
     // Because Andreas said so.. We need a prompt to tell people that they are teleporting..
-    //execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
-    //execute!(io::stdout(), Hide).expect("Failed to hide cursor");
-
-    //execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
 
     let mut safe_teleport = false;
     // Check if the player has any safe teleports left
@@ -852,8 +804,8 @@ fn main() {
         );
 
         while player.is_alive && any_robots_left(&dumb_robots) {
-            draw_boundaries(&player);
-            draw_active_objects(&player, &dumb_robots, &junk_heaps, &gamestate);
+            draw_boundaries(&player, &gamestate, &junk_heaps, &dumb_robots);
+            draw_active_objects(&player, &dumb_robots, &junk_heaps);
             if !gamestate.wait_for_end {
                 let (legal_move, quit) =
                     player_input(&mut player, &dumb_robots, &mut gamestate, &game_board_data);
@@ -902,8 +854,8 @@ fn main() {
         &mut junk_heaps,
         &mut game_board_data,
     );
-    draw_boundaries(&player);
-    draw_active_objects(&player, &dumb_robots, &junk_heaps, &gamestate);
+    draw_boundaries(&player, &gamestate, &junk_heaps, &dumb_robots);
+    draw_active_objects(&player, &dumb_robots, &junk_heaps);
 
     execute!(
         io::stdout(),
