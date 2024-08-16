@@ -5,7 +5,7 @@ on:
         - main
 
 jobs:
-  build:
+  build-linux:
     runs-on: ubuntu-latest
     name: Build and cargo fmt check
     steps:
@@ -30,7 +30,7 @@ jobs:
         path: robots_x86_64-linux.tar.gz
 
   build-macos:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     name: Build and cargo fmt check
     steps:
     - name: Checkout code

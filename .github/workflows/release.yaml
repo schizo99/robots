@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  build-linux:
     runs-on: ubuntu-latest
     name: Build and create release
     steps:
@@ -30,3 +30,26 @@ jobs:
         files: |
           robots_x86_64-linux.tar.gz
         generate_release_notes: true
+
+  build-macos:
+    runs-on: macos-latest
+    needs: build-linux
+    name: Build and cargo fmt check
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Format check
+      run: cargo fmt --check
+
+    - name: Build
+      run: cargo build --release
+
+    - name: Create tarball
+      run: tar -czf robots_x86_64-macos.tar.gz LICENSE README.md -C target/release robots
+
+    - name: 'Attach artifact to release'
+      run: |
+          gh release upload ${{ github.ref_name }} robots_x86_64-macos.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ github.TOKEN }}
