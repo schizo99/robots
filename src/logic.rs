@@ -699,6 +699,12 @@ fn generate_level(
 pub fn run_game(args: &Args) {
     execute!(io::stdout(), Hide).unwrap();
     handle_highscore(&args);
+    // Show the splash
+    splash_screen();
+    game_loop(args);
+}
+
+fn game_loop(args: &Args) {
 
     let mut game_board_data: Vec<Vec<i32>> =
         vec![vec![0; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize];
@@ -706,8 +712,6 @@ pub fn run_game(args: &Args) {
     let mut dumb_robots: Vec<DumbRobot> = Vec::new();
     let mut junk_heaps: Vec<JunkHeap> = Vec::new();
 
-    // Show the splash
-    splash_screen();
 
     // Basic setup
     let mut gamestate = GameState {
@@ -817,7 +821,7 @@ pub fn run_game(args: &Args) {
     std::thread::sleep(std::time::Duration::from_millis(1000));
 
     if retry_query() {
-        run_game(args);
+        game_loop(args);
     } else {
         show_highscore(&args.path, &player, &gamestate);
         quit_now();
