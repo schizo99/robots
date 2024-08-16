@@ -29,6 +29,17 @@ struct Player {
     pos_x: i32,
     pos_y: i32,
     safe_teleports: i32,
+    invincible: bool,
+    bombs: i32,
+}
+
+struct Item {
+    pos_x: i32,
+    pos_y: i32,
+    level: i32,
+    kind: i32,
+    visible: bool,
+    picked_up: bool,
 }
 
 #[derive(Clone)]
@@ -134,6 +145,8 @@ fn handle_highscore(args: &Args) {
                 pos_x: 0,
                 pos_y: 0,
                 safe_teleports: 3,
+                invincible: false,
+                bombs: 0,
             },
             &GameState {
                 turn: 0,
@@ -195,7 +208,28 @@ fn quit_now() {
     std::process::exit(0);
 }
 
-fn draw_active_objects(player: &Player, dumb_robots: &Vec<DumbRobot>, junk_heaps: &Vec<JunkHeap>) {
+fn draw_active_objects(
+    player: &Player,
+    dumb_robots: &Vec<DumbRobot>,
+    junk_heaps: &Vec<JunkHeap>,
+    item: &Item,
+) {
+    // Draw the item, if it is visible and not picked up
+    if item.visible && !item.picked_up {
+        execute!(
+            io::stdout(),
+            MoveTo(
+                item.pos_x as u16 + PADDING_LEFT as u16,
+                item.pos_y as u16 + PADDING_TOP as u16
+            )
+        )
+        .unwrap();
+        if item.kind == 1 {
+            print!("S");
+        } else if item.kind == 2 {
+            print!("B");
+        }
+    }
     // Draw the player
     execute!(
         io::stdout(),
@@ -286,6 +320,13 @@ fn draw_boundaries(
     let score_str = format!("Score:  {}", player.score);
     let safe_teleports_str = format!("s:  safe teleport ({})", player.safe_teleports);
     let level_str = format!("Level:  {}", gamestate.level);
+    let bomb_str = format!("b:  bomb ({})", player.bombs);
+    let player_str;
+    if player.invincible {
+        player_str = format!("@:  you (invincible)");
+    } else {
+        player_str = format!("@:  you");
+    }
     let alive_robots_str = format!("Robots:  {}", alive_robots(dumb_robots));
     let junk_piles_str = format!("Junk piles:  {}", junk_heaps.len());
     let menu = vec![
@@ -302,6 +343,7 @@ fn draw_boundaries(
         "w:  wait for end",
         "t:  teleport (unsafe)",
         safe_teleports_str.as_str(),
+        bomb_str.as_str(),
         ".:  wait one turn",
         "q:  quit",
         "",
@@ -311,7 +353,7 @@ fn draw_boundaries(
         "&:  super robot",
         "N:  killer robot",
         "#:  junk heap",
-        "@:  you",
+        player_str.as_str(),
         "",
         score_str.as_str(),
     ];
@@ -344,7 +386,10 @@ fn draw_boundaries(
     print!("\\");
     print!("{}", "-".repeat(BOARD_WIDTH as usize));
     println!("/");
-    println!("\t{}\t{}\t{}", level_str, junk_piles_str, alive_robots_str);
+    println!(
+        "\t{}\t  {}\t{}",
+        level_str, junk_piles_str, alive_robots_str
+    );
 }
 
 fn player_input(
@@ -455,6 +500,7 @@ fn game_tick(
     dumb_robots: &mut Vec<DumbRobot>,
     junk_heaps: &mut Vec<JunkHeap>,
     game_board_data: &mut Vec<Vec<i32>>,
+    item: &mut Item,
 ) {
     // Clear the game board..
     game_board_data
@@ -468,8 +514,6 @@ fn game_tick(
 
     // All dumb_robots should move towards the player in a straight line
     for robot in dumb_robots {
-        // Ugly, but it works... ;)
-
         if robot.kind == 1 {
             if !robot.is_scrap {
                 // First just make sure that this robot is not standing on a junk pile.
@@ -478,6 +522,9 @@ fn game_tick(
                     player.score += 1;
                     continue;
                 }
+
+                let old_x = robot.pos_x.clone();
+                let old_y = robot.pos_y.clone();
 
                 if robot.pos_x < player.pos_x {
                     robot.pos_x += 1;
@@ -488,8 +535,21 @@ fn game_tick(
                     robot.pos_y += 1;
                 } else if robot.pos_y > player.pos_y {
                     robot.pos_y -= 1;
-                } else if robot.pos_y == player.pos_y && robot.pos_x == player.pos_x {
-                    player.is_alive = false;
+                }
+                if robot.pos_y == player.pos_y && robot.pos_x == player.pos_x {
+                    if player.invincible {
+                        //robot.is_scrap = true;
+                        robot.pos_x = old_x;
+                        robot.pos_y = old_y;
+                        junk_heaps.push(JunkHeap {
+                            pos_x: robot.pos_x,
+                            pos_y: robot.pos_y,
+                        });
+                        player.score += 1;
+                        player.invincible = false;
+                    } else {
+                        player.is_alive = false;
+                    }
                 }
 
                 // Add this robot to the game_board if it is a free slot, otherwise turn into scrap
@@ -563,6 +623,23 @@ fn game_tick(
                 // Move the robot to the shortest move
                 robot.pos_x += shortest_move.0;
                 robot.pos_y += shortest_move.1;
+
+                if robot.pos_y == player.pos_y && robot.pos_x == player.pos_x {
+                    if player.invincible {
+                        // For horses we will just randomize a direction for x and y where we should put the pile
+                        let mut rng = rand::thread_rng();
+                        let pile_x = rng.gen_range(-1..2);
+                        let pile_y = rng.gen_range(-1..2);
+                        junk_heaps.push(JunkHeap {
+                            pos_x: player.pos_x + pile_x,
+                            pos_y: robot.pos_y + pile_y,
+                        });
+                        player.score += 1;
+                        player.invincible = false;
+                    } else {
+                        player.is_alive = false;
+                    }
+                }
 
                 // Add this robot to the game_board if it is a free slot, otherwise turn into scrap
                 if game_board_data[robot.pos_y as usize - 1][robot.pos_x as usize - 1] == 0 {
@@ -649,9 +726,19 @@ fn game_tick(
                     }
 
                     if new_x == player.pos_x && new_y == player.pos_y {
-                        player.is_alive = false;
-                        robot.pos_x = new_x;
-                        robot.pos_y = new_y;
+                        if player.invincible {
+                            //robot.is_scrap = true;
+                            junk_heaps.push(JunkHeap {
+                                pos_x: robot.pos_x,
+                                pos_y: robot.pos_y,
+                            });
+                            player.score += 1;
+                            player.invincible = false;
+                        } else {
+                            robot.pos_x = new_x;
+                            robot.pos_y = new_y;
+                            player.is_alive = false;
+                        }
                     }
 
                     // Check the board for this position to make sure that it is a free spot
@@ -681,9 +768,27 @@ fn game_tick(
         }
     }
 
+    // See whether we should show the current level item
+    // It should be a 2 percent chance of showing the item
+    let mut rng = rand::thread_rng();
+    let show_item = rng.gen_range(1..100);
+    if show_item <= 5 && !item.visible {
+        item.visible = true;
+    }
+
     // Also make sure that the player is not standing on a newly created junk pile..
     if game_board_data[player.pos_y as usize - 1][player.pos_x as usize - 1] != 0 {
-        player.is_alive = false;
+        //player.is_alive = false;
+    }
+
+    // Check if the player is standing on the item
+    if player.pos_x == item.pos_x && player.pos_y == item.pos_y && item.visible && !item.picked_up {
+        item.picked_up = true;
+        if item.kind == 1 {
+            player.invincible = true;
+        } else if item.kind == 2 {
+            player.bombs += 1;
+        }
     }
 }
 
@@ -791,6 +896,17 @@ fn main() {
         pos_x: 0,
         pos_y: 0,
         safe_teleports: 2,
+        invincible: false,
+        bombs: 0,
+    };
+
+    let mut item = Item {
+        pos_x: 0,
+        pos_y: 0,
+        level: 0,
+        kind: 0,
+        visible: false,
+        picked_up: false,
     };
 
     while player.is_alive {
@@ -801,11 +917,12 @@ fn main() {
             &mut dumb_robots,
             &mut junk_heaps,
             &mut player,
+            &mut item,
         );
 
         while player.is_alive && any_robots_left(&dumb_robots) {
             draw_boundaries(&player, &gamestate, &junk_heaps, &dumb_robots);
-            draw_active_objects(&player, &dumb_robots, &junk_heaps);
+            draw_active_objects(&player, &dumb_robots, &junk_heaps, &item);
             if !gamestate.wait_for_end {
                 let (legal_move, quit) =
                     player_input(&mut player, &dumb_robots, &mut gamestate, &game_board_data);
@@ -815,6 +932,7 @@ fn main() {
                         &mut dumb_robots,
                         &mut junk_heaps,
                         &mut game_board_data,
+                        &mut item,
                     );
                 }
                 if quit {
@@ -826,6 +944,7 @@ fn main() {
                     &mut dumb_robots,
                     &mut junk_heaps,
                     &mut game_board_data,
+                    &mut item,
                 );
                 // Sleep for 75ms
                 std::thread::sleep(std::time::Duration::from_millis(75));
@@ -842,6 +961,7 @@ fn main() {
                     &mut dumb_robots,
                     &mut junk_heaps,
                     &mut player,
+                    &mut item,
                 );
             }
         }
@@ -853,9 +973,10 @@ fn main() {
         &mut dumb_robots,
         &mut junk_heaps,
         &mut game_board_data,
+        &mut item,
     );
     draw_boundaries(&player, &gamestate, &junk_heaps, &dumb_robots);
-    draw_active_objects(&player, &dumb_robots, &junk_heaps);
+    draw_active_objects(&player, &dumb_robots, &junk_heaps, &item);
 
     execute!(
         io::stdout(),
@@ -962,6 +1083,7 @@ fn generate_level(
     dumb_robots: &mut Vec<DumbRobot>,
     junk_heaps: &mut Vec<JunkHeap>,
     player: &mut Player,
+    item: &mut Item,
 ) {
     let mut rng = rand::thread_rng();
 
@@ -972,10 +1094,19 @@ fn generate_level(
 
     // Add one additional safe teleport per level
     player.safe_teleports += 1;
+    player.invincible = false;
 
     // Clear the old junk piles vector and the dumb_robots one
     dumb_robots.clear();
     junk_heaps.clear();
+
+    // Update the level drop item
+    item.pos_x = rng.gen_range(1..BOARD_WIDTH);
+    item.pos_y = rng.gen_range(1..BOARD_HEIGHT);
+    item.level = gamestate.level;
+    item.kind = rng.gen_range(1..3);
+    item.visible = false;
+    item.picked_up = false;
 
     // Add dumb robots.
     for _ in 0..no_of_dumb_robots(gamestate.level) {
