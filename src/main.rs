@@ -595,7 +595,6 @@ fn game_tick(
                             pos_x: new_x,
                             pos_y: new_y,
                             is_scrap: false,
-                            id: 0,
                             kind: 3,
                         },
                     );
@@ -668,7 +667,6 @@ fn game_tick(
                             pos_x: new_x,
                             pos_y: new_y,
                             is_scrap: false,
-                            id: 0,
                             kind: 3,
                         },
                     );
@@ -1047,7 +1045,6 @@ fn generate_level(
             pos_x: p_x,
             pos_y: p_y,
             is_scrap: false,
-            id: i,
             kind: 1,
         });
         // Add the robot to the game board array
@@ -1073,7 +1070,6 @@ fn generate_level(
             pos_x: p_x,
             pos_y: p_y,
             is_scrap: false,
-            id: i,
             kind: 2,
         });
         // Add the robot to the game board array
@@ -1099,7 +1095,6 @@ fn generate_level(
             pos_x: p_x,
             pos_y: p_y,
             is_scrap: false,
-            id: i,
             kind: 3,
         });
         // Add the robot to the game board array
