@@ -20,6 +20,7 @@ struct GameState {
     turn: i32,
     level: i32,
     wait_for_end: bool,
+    bomb_away: bool,
 }
 
 struct Player {
@@ -152,6 +153,7 @@ fn handle_highscore(args: &Args) {
                 turn: 0,
                 level: 1,
                 wait_for_end: false,
+                bomb_away: false,
             },
         );
         std::process::exit(0);
@@ -320,7 +322,7 @@ fn draw_boundaries(
     let score_str = format!("Score:  {}", player.score);
     let safe_teleports_str = format!("s:  safe teleport ({})", player.safe_teleports);
     let level_str = format!("Level:  {}", gamestate.level);
-    let bomb_str = format!("b:  bomb ({})", player.bombs);
+    let bomb_str = format!("a:  bomb ({})", player.bombs);
     let player_str;
     if player.invincible {
         player_str = format!("@:  you (invincible)");
@@ -445,6 +447,10 @@ fn player_input(
                             teleport_player(false, player, robots.clone());
                             legal_move = true;
                         } // Teleport
+                        'a' => {
+                            gamestate.bomb_away = true;
+                            legal_move = true;
+                        } // Bomb
                         'w' => {
                             gamestate.wait_for_end = true;
                             legal_move = true;
@@ -501,6 +507,7 @@ fn game_tick(
     junk_heaps: &mut Vec<JunkHeap>,
     game_board_data: &mut Vec<Vec<i32>>,
     item: &mut Item,
+    game_state: &mut GameState,
 ) {
     // Clear the game board..
     game_board_data
@@ -512,8 +519,70 @@ fn game_tick(
         game_board_data[junk.pos_y as usize - 1][junk.pos_x as usize - 1] = 2;
     }
 
+    // Check if we should bomb away
+    if game_state.bomb_away {
+        game_state.bomb_away = false;
+        // Here we should create a vector with all coordinates based on the player position in the following form
+        // ..B..   Space two steps up
+        // .BBB.   Space diagonal up and left, up and right, and up
+        // BB@BB   Two spaces left, one space left, two spaces right, one space right
+        // .BBB.   Space diagonal down and left, down and right, and down
+        // ..B..   Space two steps down
+        let bomb_coordinates = vec![
+            (player.pos_x, player.pos_y - 2),
+            (player.pos_x - 1, player.pos_y - 1),
+            (player.pos_x + 1, player.pos_y - 1),
+            (player.pos_x, player.pos_y - 1),
+            (player.pos_x - 2, player.pos_y),
+            (player.pos_x - 1, player.pos_y),
+            (player.pos_x + 1, player.pos_y),
+            (player.pos_x + 2, player.pos_y),
+            (player.pos_x - 1, player.pos_y + 1),
+            (player.pos_x + 1, player.pos_y + 1),
+            (player.pos_x, player.pos_y + 1),
+            (player.pos_x, player.pos_y + 2),
+        ];
+
+        // For all these coordinates, we should move to the position, as long as is in the playing field
+        // and draw a {
+        for coordinate in bomb_coordinates {
+            if coordinate.0 > 0
+                && coordinate.0 <= BOARD_WIDTH
+                && coordinate.1 > 0
+                && coordinate.1 <= BOARD_HEIGHT
+            {
+                // Check if there is a robot at this position
+                for robot in &mut *dumb_robots {
+                    if robot.pos_x == coordinate.0 && robot.pos_y == coordinate.1 {
+                        robot.is_scrap = true;
+                        player.score += 1;
+
+                        // Add a junk heap the heaps array
+                        junk_heaps.push(JunkHeap {
+                            pos_x: robot.pos_x,
+                            pos_y: robot.pos_y,
+                        });
+                    }
+                }
+
+                // Move the cursor to the specific position and print a {
+                execute!(
+                    io::stdout(),
+                    MoveTo(
+                        coordinate.0 as u16 + PADDING_LEFT as u16,
+                        coordinate.1 as u16 + PADDING_TOP as u16
+                    )
+                )
+                .unwrap();
+                println!("{{");
+            }
+        }
+        // Wait for 400 ms
+        std::thread::sleep(std::time::Duration::from_millis(600));
+    }
+
     // All dumb_robots should move towards the player in a straight line
-    for robot in dumb_robots {
+    for robot in &mut *dumb_robots {
         if robot.kind == 1 {
             if !robot.is_scrap {
                 // First just make sure that this robot is not standing on a junk pile.
@@ -778,7 +847,7 @@ fn game_tick(
 
     // Also make sure that the player is not standing on a newly created junk pile..
     if game_board_data[player.pos_y as usize - 1][player.pos_x as usize - 1] != 0 {
-        //player.is_alive = false;
+        player.is_alive = false;
     }
 
     // Check if the player is standing on the item
@@ -887,6 +956,7 @@ fn main() {
         turn: 0,
         level: 1,
         wait_for_end: false,
+        bomb_away: false,
     };
 
     let mut player = Player {
@@ -933,6 +1003,7 @@ fn main() {
                         &mut junk_heaps,
                         &mut game_board_data,
                         &mut item,
+                        &mut gamestate,
                     );
                 }
                 if quit {
@@ -945,6 +1016,7 @@ fn main() {
                     &mut junk_heaps,
                     &mut game_board_data,
                     &mut item,
+                    &mut gamestate,
                 );
                 // Sleep for 75ms
                 std::thread::sleep(std::time::Duration::from_millis(75));
@@ -974,6 +1046,7 @@ fn main() {
         &mut junk_heaps,
         &mut game_board_data,
         &mut item,
+        &mut gamestate,
     );
     draw_boundaries(&player, &gamestate, &junk_heaps, &dumb_robots);
     draw_active_objects(&player, &dumb_robots, &junk_heaps, &item);
