@@ -28,3 +28,25 @@ jobs:
       with:
         name: robots_x86_64-linux
         path: robots_x86_64-linux.tar.gz
+
+  build-macos:
+    runs-on: ubuntu-latest
+    name: Build and cargo fmt check
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Format check
+      run: cargo fmt --check
+
+    - name: Build
+      run: cargo build --release
+
+    - name: Create tarball
+      run: tar -czf robots_x86_64-macos.tar.gz LICENSE README.md -C target/release robots
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: robots_x86_64-macos
+        path: robots_x86_64-macos.tar.gz
