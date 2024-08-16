@@ -208,6 +208,14 @@ fn quit_now() {
     std::process::exit(0);
 }
 
+fn move_cursor_padded(x: i32, y: i32) {
+    execute!(
+        io::stdout(),
+        MoveTo(x as u16 + PADDING_LEFT as u16, y as u16 + PADDING_TOP as u16)
+    )
+    .unwrap();
+}
+
 fn draw_active_objects(
     player: &Player,
     dumb_robots: &Vec<DumbRobot>,
@@ -216,14 +224,7 @@ fn draw_active_objects(
 ) {
     // Draw the item, if it is visible and not picked up
     if item.visible && !item.picked_up {
-        execute!(
-            io::stdout(),
-            MoveTo(
-                item.pos_x as u16 + PADDING_LEFT as u16,
-                item.pos_y as u16 + PADDING_TOP as u16
-            )
-        )
-        .unwrap();
+        move_cursor_padded(item.pos_x, item.pos_y);
         if item.kind == 1 {
             print!("S");
         } else if item.kind == 2 {
@@ -231,26 +232,12 @@ fn draw_active_objects(
         }
     }
     // Draw the player
-    execute!(
-        io::stdout(),
-        MoveTo(
-            player.pos_x as u16 + PADDING_LEFT as u16,
-            player.pos_y as u16 + PADDING_TOP as u16
-        )
-    )
-    .unwrap();
+    move_cursor_padded(player.pos_x, player.pos_y);
     print!("@");
 
     // Draw the robots
     for robot in dumb_robots {
-        execute!(
-            io::stdout(),
-            MoveTo(
-                robot.pos_x as u16 + PADDING_LEFT as u16,
-                robot.pos_y as u16 + PADDING_TOP as u16
-            )
-        )
-        .unwrap();
+        move_cursor_padded(robot.pos_x, robot.pos_y);
         if !robot.is_scrap {
             // Separate the robots by kind
             if robot.kind == 1 {
@@ -265,26 +252,12 @@ fn draw_active_objects(
 
     // Draw the junk heaps
     for junk in junk_heaps {
-        execute!(
-            io::stdout(),
-            MoveTo(
-                junk.pos_x as u16 + PADDING_LEFT as u16,
-                junk.pos_y as u16 + PADDING_TOP as u16
-            )
-        )
-        .unwrap();
+        move_cursor_padded(junk.pos_x, junk.pos_y);
         print!("#");
     }
 
     // Draw the player
-    execute!(
-        io::stdout(),
-        MoveTo(
-            player.pos_x as u16 + PADDING_LEFT as u16,
-            player.pos_y as u16 + PADDING_TOP as u16
-        )
-    )
-    .unwrap();
+    move_cursor_padded(player.pos_x, player.pos_y);
     if player.is_alive {
         print!("@")
     } else {
@@ -358,14 +331,7 @@ fn draw_boundaries(
         score_str.as_str(),
     ];
     for (line, i) in menu.iter().zip(0..) {
-        execute!(
-            io::stdout(),
-            MoveTo(
-                PADDING_LEFT as u16 + BOARD_WIDTH as u16 + 4,
-                PADDING_TOP as u16 + i
-            )
-        )
-        .expect("Failed to move cursor");
+        move_cursor_padded(BOARD_WIDTH + 4, i);
         print!("{}", line);
     }
 
@@ -962,11 +928,7 @@ fn main() {
     draw_boundaries(&player, &gamestate, &junk_heaps, &dumb_robots);
     draw_active_objects(&player, &dumb_robots, &junk_heaps, &item);
 
-    execute!(
-        io::stdout(),
-        MoveTo(PADDING_LEFT as u16 + 4, PADDING_TOP as u16)
-    )
-    .unwrap();
+    move_cursor_padded(4, 0);
     println!("[You did not make it. You were caught by the robots..]");
     add_highscore(&args, &player, &gamestate);
 
