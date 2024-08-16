@@ -564,7 +564,7 @@ fn game_tick(
                 }
 
                 // The horse robot can move three steps forward and two to the side
-                let mut moves: Vec<(i32, i32)> = vec![
+                let moves: Vec<(i32, i32)> = vec![
                     (3, 2),
                     (3, -2),
                     (-3, 2),
@@ -636,7 +636,7 @@ fn game_tick(
                     continue;
                 }
 
-                let mut moves: Vec<(i32, i32)> = vec![
+                let moves: Vec<(i32, i32)> = vec![
                     (0, 1),
                     (0, -1),
                     (1, 0),
@@ -818,7 +818,7 @@ fn main() {
     handle_highscore(&args);
 
     // We need a playing ground..
-    let mut rng = rand::thread_rng();
+    //let mut rng = rand::thread_rng();
 
     let mut game_board_data: Vec<Vec<i32>> =
         vec![vec![0; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize];
@@ -981,7 +981,7 @@ fn no_of_dumb_robots(level: i32) -> i32 {
     if level < 2 {
         20
     } else {
-        let mut robots = 20 + (level - 2) * 5;
+        let robots = 20 + (level - 2) * 5;
         robots
     }
 }
@@ -990,7 +990,7 @@ fn no_of_super_robots(level: i32) -> i32 {
     if level < 5 {
         0
     } else {
-        let mut robots = 1 + (level - 4) * 2;
+        let robots = 1 + (level - 4) * 2;
         robots
     }
 }
@@ -999,7 +999,7 @@ fn no_of_killer_robots(level: i32) -> i32 {
     if level < 9 {
         0
     } else {
-        let mut robots = 1 + ((level - 10) * 2) + 1;
+        let robots = 1 + ((level - 10) * 2) + 1;
         robots
     }
 }
