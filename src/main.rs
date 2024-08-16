@@ -566,14 +566,7 @@ fn game_tick(
                 }
 
                 // Move the cursor to the specific position and print a {
-                execute!(
-                    io::stdout(),
-                    MoveTo(
-                        coordinate.0 as u16 + PADDING_LEFT as u16,
-                        coordinate.1 as u16 + PADDING_TOP as u16
-                    )
-                )
-                .unwrap();
+                move_cursor_padded(coordinate.0, coordinate.1);
                 println!("{{");
             }
         }
