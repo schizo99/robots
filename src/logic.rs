@@ -259,16 +259,16 @@ fn game_tick(
                     continue;
                 }
 
-                // The horse robot can move three steps forward and two to the side
+                // The horse robot can move two steps forward and one to the side
                 let moves: Vec<(i32, i32)> = vec![
-                    (3, 2),
-                    (3, -2),
-                    (-3, 2),
-                    (-3, -2),
-                    (2, 3),
-                    (2, -3),
-                    (-2, 3),
-                    (-2, -3),
+                    (2, 1),
+                    (2, -1),
+                    (-2, 1),
+                    (-2, -1),
+                    (1, 2),
+                    (1, -2),
+                    (-1, 2),
+                    (-1, -2),
                 ];
 
                 // Iterate over the moves vector and calculate the euclidian distance to the player using the euclidian distance
