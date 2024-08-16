@@ -577,8 +577,8 @@ fn game_tick(
                 println!("{{");
             }
         }
-        // Wait for 400 ms
-        std::thread::sleep(std::time::Duration::from_millis(600));
+        // Wait for 500 ms
+        std::thread::sleep(std::time::Duration::from_millis(500));
     }
 
     // All dumb_robots should move towards the player in a straight line
