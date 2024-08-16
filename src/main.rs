@@ -211,7 +211,10 @@ fn quit_now() {
 fn move_cursor_padded(x: i32, y: i32) {
     execute!(
         io::stdout(),
-        MoveTo(x as u16 + PADDING_LEFT as u16, y as u16 + PADDING_TOP as u16)
+        MoveTo(
+            x as u16 + PADDING_LEFT as u16,
+            y as u16 + PADDING_TOP as u16
+        )
     )
     .unwrap();
 }
@@ -374,14 +377,14 @@ fn player_input(
             match event.code {
                 KeyCode::Char(c) => {
                     match c {
-                        'y' => legal_move = move_player(player, -1, -1, game_board_data),  // Move diagonally up and left
+                        'y' => legal_move = move_player(player, -1, -1, game_board_data), // Move diagonally up and left
                         'k' => legal_move = move_player(player, 0, -1, game_board_data),  // Move up
-                        'u' => legal_move = move_player(player, 1, -1, game_board_data),  // Move diagonally up and right
-                        'h' => legal_move = move_player(player, -1, 0, game_board_data),  // Move left
-                        'l' => legal_move = move_player(player, 1, 0, game_board_data),  // Move right,
-                        'b' => legal_move = move_player(player, -1, 1, game_board_data),  // Move diagonally down and left
-                        'j' => legal_move = move_player(player, 0, 1, game_board_data),  // Nove down
-                        'n' => legal_move = move_player(player, 1, 1, game_board_data),  // Move diagonally down and right
+                        'u' => legal_move = move_player(player, 1, -1, game_board_data), // Move diagonally up and right
+                        'h' => legal_move = move_player(player, -1, 0, game_board_data), // Move left
+                        'l' => legal_move = move_player(player, 1, 0, game_board_data), // Move right,
+                        'b' => legal_move = move_player(player, -1, 1, game_board_data), // Move diagonally down and left
+                        'j' => legal_move = move_player(player, 0, 1, game_board_data), // Nove down
+                        'n' => legal_move = move_player(player, 1, 1, game_board_data), // Move diagonally down and right
                         'q' => {
                             player.is_alive = false;
                             legal_move = false;
@@ -399,8 +402,8 @@ fn player_input(
                             gamestate.wait_for_end = true;
                             legal_move = true;
                         } // Wait until robots are gone, or player is dead
-                        '.' => legal_move = true, // Wait
-                        _ => legal_move = false,  // Do nothing
+                        '.' => legal_move = true,                                       // Wait
+                        _ => legal_move = false, // Do nothing
                     }
                 }
                 _ => (),
