@@ -874,14 +874,14 @@ fn main() {
     let args = Args::parse();
     handle_highscore(&args);
 
-    // We need a playing ground..
-    //let mut rng = rand::thread_rng();
-
     let mut game_board_data: Vec<Vec<i32>> =
         vec![vec![0; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize];
 
     let mut dumb_robots: Vec<DumbRobot> = Vec::new();
     let mut junk_heaps: Vec<JunkHeap> = Vec::new();
+
+    // Show the splash
+    splash_screen();
 
     // Basic setup
     let mut gamestate = GameState {
@@ -1196,4 +1196,56 @@ fn generate_level(
 
     player.pos_x = p_x;
     player.pos_y = p_y;
+}
+
+fn splash_screen() {
+    let splash_screen = vec![
+        "/------------------------------------\\", 
+        "|                                    |   Welcome to the game!",
+        "|               ROBOTS               |",
+        "|                                    |   The game is simple. You are the player, represented by the @ symbol",
+        "|      .--.      .--.      .--.      |   You are surrounded by robots, represented by +, &, and N.",
+        "|     /    \\    /    \\    /    \\     |   The robots will try to catch you. If they do, you lose.",
+        "|    |  []  |  |  []  |  |  []  |    |",
+        "|    |      |  |      |  |      |    |   You can move in the following directions:",
+        "|    |______|  |______|  |______|    |",
+        "|                                    |   y k u",
+        "|        .----.       / \\            |    \\|/          (You can also pick up objects, represented by S and B.",
+        "|       /      \\     /   \\           |   h- -l         S will make you invincible for a short (?) period of time.",
+        "|      |  O  O  |   |  O  |          |    /|\\          B will give you an extra bomb.)",
+        "|      |   \\/   |   |     |          |   b j n",
+        "|       \\      /     \\___/           |",
+        "|        `----'                      |   You can teleport (t), safe teleport (s) if charged,",
+        "|                                    |   use any of your bombs (a), wait for the level end (w),",
+        "|                                    |   or quit the game (q).",
+        "\\---------- ASCII art by: Chat-GPT --/",
+        ];
+
+    // Print the vector with padding...
+
+    // Clear the screen
+    execute!(io::stdout(), Clear(ClearType::All)).unwrap();
+
+    // Set the cursor to the top left corner
+    execute!(io::stdout(), MoveTo(0, 0)).unwrap();
+
+    print!("{}", "\n".repeat(PADDING_TOP as usize));
+
+    for (line, i) in splash_screen.iter().zip(0..) {
+        print!("{}", " ".repeat(PADDING_LEFT as usize));
+        println!("{}", line);
+    }
+
+    // Sleep for 5000ms
+    std::thread::sleep(std::time::Duration::from_millis(2000));
+
+    // Set the cursor to the top left corner
+    move_cursor_padded(74, 18);
+
+    println!(" (Press any key to continue...)");
+
+    // Wait for any key input
+    enable_raw_mode().expect("Failed to enable raw mode");
+    let _ = read().expect("Failed to read event");
+    disable_raw_mode().expect("Failed to disable raw mode");
 }
