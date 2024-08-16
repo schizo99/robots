@@ -705,13 +705,11 @@ pub fn run_game(args: &Args) {
 }
 
 fn game_loop(args: &Args) {
-
     let mut game_board_data: Vec<Vec<i32>> =
         vec![vec![0; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize];
 
     let mut dumb_robots: Vec<DumbRobot> = Vec::new();
     let mut junk_heaps: Vec<JunkHeap> = Vec::new();
-
 
     // Basic setup
     let mut gamestate = GameState {
