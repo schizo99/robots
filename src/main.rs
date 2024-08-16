@@ -96,7 +96,6 @@ fn validate_highscore_file(path: &str) {
 
 fn show_highscore(path: &str, player: &Player, gamestate: &GameState) {
     let end_score = player.score;
-    let end_level = gamestate.level;
 
     let content = top_highscores(&path).join("\n");
     execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
@@ -175,7 +174,7 @@ fn top_highscores(path: &str) -> Vec<String> {
         " ".repeat(padding - 6)
     ));
     result.push(format!(" {}", "-".repeat(padding + 30)));
-    for (i, (username, score, level)) in highscores.iter().take(10).enumerate() {
+    for (_, (username, score, level)) in highscores.iter().take(10).enumerate() {
         result.push(format!(
             " {}{}\t {}\t\t {}",
             username,
@@ -361,7 +360,7 @@ fn draw_boundaries(player: &Player) {
         "",
         "Score:  0",
     ];
-    for ((line, i)) in menu.iter().zip(0..) {
+    for (line, i) in menu.iter().zip(0..) {
         execute!(
             io::stdout(),
             MoveTo(
