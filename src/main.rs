@@ -16,7 +16,7 @@ const BOARD_WIDTH: i32 = 60;
 const BOARD_HEIGHT: i32 = 24;
 
 #[derive(Clone, Copy)]
-struct Game_State {
+struct GameState {
     turn: i32,
     level: i32,
     wait_for_end: bool,
@@ -32,16 +32,15 @@ struct Player {
 }
 
 #[derive(Clone)]
-struct Dumb_Robot {
+struct DumbRobot {
     pos_x: i32,
     pos_y: i32,
     is_scrap: bool,
     kind: i32,
-    id: i32,
 }
 
 #[derive(Clone)]
-struct Junk_Heap {
+struct JunkHeap {
     pos_x: i32,
     pos_y: i32,
 }
@@ -62,7 +61,7 @@ struct Args {
     show_highscore: bool,
 }
 
-fn add_highscore(args: &Args, player: &Player, state: &Game_State) {
+fn add_highscore(args: &Args, player: &Player, state: &GameState) {
     let mut file = OpenOptions::new().append(true).open(&args.path).unwrap();
 
     let timestamp = std::time::SystemTime::now()
@@ -95,9 +94,8 @@ fn validate_highscore_file(path: &str) {
     }
 }
 
-fn show_highscore(path: &str, player: &Player, game_state: &Game_State) {
+fn show_highscore(path: &str, player: &Player, gamestate: &GameState) {
     let end_score = player.score;
-    let end_level = game_state.level;
 
     let content = top_highscores(&path).join("\n");
     execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
@@ -108,7 +106,7 @@ fn show_highscore(path: &str, player: &Player, game_state: &Game_State) {
     } else {
         println!(
             "{}\n You scored {} points and made it to level {} ",
-            &content, end_score, game_state.level
+            &content, end_score, gamestate.level
         );
         println!(" (Press any key to continue...)");
     }
@@ -137,7 +135,7 @@ fn handle_highscore(args: &Args) {
                 pos_y: 0,
                 safe_teleports: 3,
             },
-            &Game_State {
+            &GameState {
                 turn: 0,
                 level: 1,
                 wait_for_end: false,
@@ -176,7 +174,7 @@ fn top_highscores(path: &str) -> Vec<String> {
         " ".repeat(padding - 6)
     ));
     result.push(format!(" {}", "-".repeat(padding + 30)));
-    for (i, (username, score, level)) in highscores.iter().take(10).enumerate() {
+    for (_, (username, score, level)) in highscores.iter().take(10).enumerate() {
         result.push(format!(
             " {}{}\t {}\t\t {}",
             username,
@@ -197,12 +195,7 @@ fn quit_now() {
     std::process::exit(0);
 }
 
-fn draw_active_objects(
-    player: &Player,
-    dumb_robots: &Vec<Dumb_Robot>,
-    junk_heaps: &Vec<Junk_Heap>,
-    game_state: &Game_State,
-) {
+fn draw_active_objects(player: &Player, dumb_robots: &Vec<DumbRobot>, junk_heaps: &Vec<JunkHeap>) {
     // Draw the player
     execute!(
         io::stdout(),
@@ -264,56 +257,6 @@ fn draw_active_objects(
         print!("%");
     }
 
-    // Draw the score
-    execute!(
-        io::stdout(),
-        MoveTo(
-            BOARD_WIDTH as u16 + 7,
-            PADDING_TOP as u16 + BOARD_HEIGHT as u16
-        )
-    )
-    .unwrap();
-    print!("Score: {}    ", player.score);
-
-    // Draw safe teleports
-    execute!(
-        io::stdout(),
-        MoveTo(BOARD_WIDTH as u16 + 11, PADDING_TOP as u16 + 12)
-    )
-    .unwrap();
-    print!("safe teleport ({})    ", player.safe_teleports);
-
-    // Draw the level and some more data
-    execute!(
-        io::stdout(),
-        MoveTo(
-            PADDING_LEFT as u16 + 3,
-            PADDING_TOP as u16 + BOARD_HEIGHT as u16 + 2
-        )
-    )
-    .unwrap();
-    print!(" Level: {} ", game_state.level);
-
-    execute!(
-        io::stdout(),
-        MoveTo(
-            PADDING_LEFT as u16 + 24,
-            PADDING_TOP as u16 + BOARD_HEIGHT as u16 + 2
-        )
-    )
-    .unwrap();
-    print!(" Robots: {} ", alive_robots(dumb_robots));
-
-    execute!(
-        io::stdout(),
-        MoveTo(
-            PADDING_LEFT as u16 + 44,
-            PADDING_TOP as u16 + BOARD_HEIGHT as u16 + 2
-        )
-    )
-    .unwrap();
-    print!(" Junk piles: {} ", junk_heaps.len());
-
     execute!(
         io::stdout(),
         MoveTo(BOARD_WIDTH as u16 + 4, BOARD_HEIGHT as u16 + 4)
@@ -321,7 +264,7 @@ fn draw_active_objects(
     .unwrap();
 }
 
-fn alive_robots(robots: &Vec<Dumb_Robot>) -> i32 {
+fn alive_robots(robots: &Vec<DumbRobot>) -> i32 {
     let mut alive = 0;
     for robot in robots {
         if !robot.is_scrap {
@@ -332,9 +275,19 @@ fn alive_robots(robots: &Vec<Dumb_Robot>) -> i32 {
 }
 
 // A very busy redraw function. However. This is the final version!
-fn draw_boundaries(player: &Player) {
+fn draw_boundaries(
+    player: &Player,
+    gamestate: &GameState,
+    junk_heaps: &Vec<JunkHeap>,
+    dumb_robots: &Vec<DumbRobot>,
+) {
     execute!(io::stdout(), Clear(ClearType::All)).expect("Failed to clear screen");
     execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
+    let score_str = format!("Score:  {}", player.score);
+    let safe_teleports_str = format!("s:  safe teleport ({})", player.safe_teleports);
+    let level_str = format!("Level:  {}", gamestate.level);
+    let alive_robots_str = format!("Robots:  {}", alive_robots(dumb_robots));
+    let junk_piles_str = format!("Junk piles:  {}", junk_heaps.len());
     let menu = vec![
         "Directions:",
         "",
@@ -348,7 +301,7 @@ fn draw_boundaries(player: &Player) {
         "",
         "w:  wait for end",
         "t:  teleport (unsafe)",
-        "s:  safe teleport (3)",
+        safe_teleports_str.as_str(),
         ".:  wait one turn",
         "q:  quit",
         "",
@@ -360,9 +313,9 @@ fn draw_boundaries(player: &Player) {
         "#:  junk heap",
         "@:  you",
         "",
-        "Score:  0",
+        score_str.as_str(),
     ];
-    for ((line, i)) in menu.iter().zip(0..) {
+    for (line, i) in menu.iter().zip(0..) {
         execute!(
             io::stdout(),
             MoveTo(
@@ -391,12 +344,13 @@ fn draw_boundaries(player: &Player) {
     print!("\\");
     print!("{}", "-".repeat(BOARD_WIDTH as usize));
     println!("/");
+    println!("\t{}\t{}\t{}", level_str, junk_piles_str, alive_robots_str);
 }
 
 fn player_input(
     player: &mut Player,
-    robots: &Vec<Dumb_Robot>,
-    game_state: &mut Game_State,
+    robots: &Vec<DumbRobot>,
+    gamestate: &mut GameState,
     game_board_data: &Vec<Vec<i32>>,
 ) -> (bool, bool) {
     enable_raw_mode().expect("Failed to enable raw mode");
@@ -410,28 +364,28 @@ fn player_input(
                 KeyCode::Char(c) => {
                     match c {
                         'y' => {
-                            legal_move = move_player(player, -1, -1, game_state, game_board_data);
+                            legal_move = move_player(player, -1, -1, game_board_data);
                         } // Move diagonally up and left
                         'k' => {
-                            legal_move = move_player(player, 0, -1, game_state, game_board_data);
+                            legal_move = move_player(player, 0, -1, game_board_data);
                         } // Move up
                         'u' => {
-                            legal_move = move_player(player, 1, -1, game_state, game_board_data);
+                            legal_move = move_player(player, 1, -1, game_board_data);
                         } // Move diagonally up and right
                         'h' => {
-                            legal_move = move_player(player, -1, 0, game_state, game_board_data);
+                            legal_move = move_player(player, -1, 0, game_board_data);
                         } // Move left
                         'l' => {
-                            legal_move = move_player(player, 1, 0, game_state, game_board_data);
+                            legal_move = move_player(player, 1, 0, game_board_data);
                         } // Move right,
                         'b' => {
-                            legal_move = move_player(player, -1, 1, game_state, game_board_data);
+                            legal_move = move_player(player, -1, 1, game_board_data);
                         } // Move diagonally down and left
                         'j' => {
-                            legal_move = move_player(player, 0, 1, game_state, game_board_data);
+                            legal_move = move_player(player, 0, 1, game_board_data);
                         } // Nove down
                         'n' => {
-                            legal_move = move_player(player, 1, 1, game_state, game_board_data);
+                            legal_move = move_player(player, 1, 1, game_board_data);
                         } // Move diagonally down and right
                         'q' => {
                             player.is_alive = false;
@@ -447,7 +401,7 @@ fn player_input(
                             legal_move = true;
                         } // Teleport
                         'w' => {
-                            game_state.wait_for_end = true;
+                            gamestate.wait_for_end = true;
                             legal_move = true;
                         } // Wait until robots are gone, or player is dead
                         '.' => legal_move = true, // Wait
@@ -461,6 +415,7 @@ fn player_input(
     }
 
     disable_raw_mode().expect("Failed to disable raw mode");
+    gamestate.turn += 1;
     (legal_move, quit)
 }
 
@@ -468,7 +423,6 @@ fn move_player(
     player: &mut Player,
     d_pos_x: i32,
     d_pos_y: i32,
-    game_state: &mut Game_State,
     game_board_data: &Vec<Vec<i32>>,
 ) -> bool {
     player.pos_x += d_pos_x;
@@ -498,8 +452,8 @@ fn move_player(
 
 fn game_tick(
     player: &mut Player,
-    dumb_robots: &mut Vec<Dumb_Robot>,
-    junk_heaps: &mut Vec<Junk_Heap>,
+    dumb_robots: &mut Vec<DumbRobot>,
+    junk_heaps: &mut Vec<JunkHeap>,
     game_board_data: &mut Vec<Vec<i32>>,
 ) {
     // Clear the game board..
@@ -546,7 +500,7 @@ fn game_tick(
                     player.score += 2;
 
                     // Add a junk heap the heaps array
-                    junk_heaps.push(Junk_Heap {
+                    junk_heaps.push(JunkHeap {
                         pos_x: robot.pos_x,
                         pos_y: robot.pos_y,
                     });
@@ -565,7 +519,7 @@ fn game_tick(
                 }
 
                 // The horse robot can move three steps forward and two to the side
-                let mut moves: Vec<(i32, i32)> = vec![
+                let moves: Vec<(i32, i32)> = vec![
                     (3, 2),
                     (3, -2),
                     (-3, 2),
@@ -592,11 +546,10 @@ fn game_tick(
                     // Calculate the distance to the player based on the current move. If it is the shortest move, update shortest move
                     let distance = eucledian_distance(
                         player,
-                        &Dumb_Robot {
+                        &DumbRobot {
                             pos_x: new_x,
                             pos_y: new_y,
                             is_scrap: false,
-                            id: 0,
                             kind: 3,
                         },
                     );
@@ -619,7 +572,7 @@ fn game_tick(
                     player.score += 2;
 
                     // Add a junk heap the heaps array
-                    junk_heaps.push(Junk_Heap {
+                    junk_heaps.push(JunkHeap {
                         pos_x: robot.pos_x,
                         pos_y: robot.pos_y,
                     });
@@ -638,7 +591,7 @@ fn game_tick(
                     continue;
                 }
 
-                let mut moves: Vec<(i32, i32)> = vec![
+                let moves: Vec<(i32, i32)> = vec![
                     (0, 1),
                     (0, -1),
                     (1, 0),
@@ -665,11 +618,10 @@ fn game_tick(
                     // Calculate the distance to the player based on the current move. If it is the shortest move, update shortest move
                     let distance = eucledian_distance(
                         player,
-                        &Dumb_Robot {
+                        &DumbRobot {
                             pos_x: new_x,
                             pos_y: new_y,
                             is_scrap: false,
-                            id: 0,
                             kind: 3,
                         },
                     );
@@ -711,7 +663,7 @@ fn game_tick(
                         player.score += 2;
 
                         // Add a junk heap the heaps array
-                        junk_heaps.push(Junk_Heap {
+                        junk_heaps.push(JunkHeap {
                             pos_x: robot.pos_x,
                             pos_y: robot.pos_y,
                         });
@@ -735,18 +687,14 @@ fn game_tick(
     }
 }
 
-fn eucledian_distance(player: &Player, robot: &Dumb_Robot) -> i32 {
+fn eucledian_distance(player: &Player, robot: &DumbRobot) -> i32 {
     // Calculate the Eucledian distance between the player and the robot
     // ((player.pos_x as f64 - robot.pos_x as f64).powi(2) + (player.pos_y as f64 - robot.pos_y as f64).powi(2)).sqrt() as i32
     (player.pos_x - robot.pos_x).abs() + (player.pos_y - robot.pos_y).abs()
 }
 
-fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<Dumb_Robot>) {
+fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<DumbRobot>) {
     // Because Andreas said so.. We need a prompt to tell people that they are teleporting..
-    //execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
-    //execute!(io::stdout(), Hide).expect("Failed to hide cursor");
-
-    //execute!(io::stdout(), MoveTo(0, 0)).expect("Failed to move cursor");
 
     let mut safe_teleport = false;
     // Check if the player has any safe teleports left
@@ -803,7 +751,7 @@ fn teleport_player(try_safe: bool, player: &mut Player, dumb_robots: Vec<Dumb_Ro
     enable_raw_mode().expect("Failed to enable raw mode");
 }
 
-fn any_robots_left(robots: &Vec<Dumb_Robot>) -> bool {
+fn any_robots_left(robots: &Vec<DumbRobot>) -> bool {
     // Iterate over the robots and check whether at least one is alive
     for robot in robots {
         if !robot.is_scrap {
@@ -821,16 +769,16 @@ fn main() {
     handle_highscore(&args);
 
     // We need a playing ground..
-    let mut rng = rand::thread_rng();
+    //let mut rng = rand::thread_rng();
 
     let mut game_board_data: Vec<Vec<i32>> =
         vec![vec![0; BOARD_WIDTH as usize]; BOARD_HEIGHT as usize];
 
-    let mut dumb_robots: Vec<Dumb_Robot> = Vec::new();
-    let mut junk_heaps: Vec<Junk_Heap> = Vec::new();
+    let mut dumb_robots: Vec<DumbRobot> = Vec::new();
+    let mut junk_heaps: Vec<JunkHeap> = Vec::new();
 
     // Basic setup
-    let mut game_state = Game_State {
+    let mut gamestate = GameState {
         turn: 0,
         level: 1,
         wait_for_end: false,
@@ -848,7 +796,7 @@ fn main() {
     while player.is_alive {
         // Generate level should generate robots based on the level, and randomize the player position
         generate_level(
-            &game_state,
+            &gamestate,
             &mut game_board_data,
             &mut dumb_robots,
             &mut junk_heaps,
@@ -856,11 +804,11 @@ fn main() {
         );
 
         while player.is_alive && any_robots_left(&dumb_robots) {
-            draw_boundaries(&player);
-            draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
-            if !game_state.wait_for_end {
+            draw_boundaries(&player, &gamestate, &junk_heaps, &dumb_robots);
+            draw_active_objects(&player, &dumb_robots, &junk_heaps);
+            if !gamestate.wait_for_end {
                 let (legal_move, quit) =
-                    player_input(&mut player, &dumb_robots, &mut game_state, &game_board_data);
+                    player_input(&mut player, &dumb_robots, &mut gamestate, &game_board_data);
                 if legal_move {
                     game_tick(
                         &mut player,
@@ -884,12 +832,12 @@ fn main() {
             }
 
             if !any_robots_left(&dumb_robots) {
-                game_state.wait_for_end = false;
+                gamestate.wait_for_end = false;
 
                 // Increase the level (and perhaps write something)
-                game_state.level += 1;
+                gamestate.level += 1;
                 generate_level(
-                    &game_state,
+                    &gamestate,
                     &mut game_board_data,
                     &mut dumb_robots,
                     &mut junk_heaps,
@@ -906,8 +854,8 @@ fn main() {
         &mut junk_heaps,
         &mut game_board_data,
     );
-    draw_boundaries(&player);
-    draw_active_objects(&player, &dumb_robots, &junk_heaps, &game_state);
+    draw_boundaries(&player, &gamestate, &junk_heaps, &dumb_robots);
+    draw_active_objects(&player, &dumb_robots, &junk_heaps);
 
     execute!(
         io::stdout(),
@@ -915,7 +863,7 @@ fn main() {
     )
     .unwrap();
     println!("[You did not make it. You were caught by the robots..]");
-    add_highscore(&args, &player, &game_state);
+    add_highscore(&args, &player, &gamestate);
 
     // Sleep for 1000ms
     std::thread::sleep(std::time::Duration::from_millis(1000));
@@ -923,7 +871,7 @@ fn main() {
     if retry_query() {
         main();
     } else {
-        show_highscore(&args.path, &player, &game_state);
+        show_highscore(&args.path, &player, &gamestate);
         quit_now();
         std::process::exit(0);
     }
@@ -984,7 +932,7 @@ fn no_of_dumb_robots(level: i32) -> i32 {
     if level < 2 {
         20
     } else {
-        let mut robots = 20 + (level - 2) * 5;
+        let robots = 20 + (level - 2) * 5;
         robots
     }
 }
@@ -993,7 +941,7 @@ fn no_of_super_robots(level: i32) -> i32 {
     if level < 5 {
         0
     } else {
-        let mut robots = 1 + (level - 4) * 2;
+        let robots = 1 + (level - 4) * 2;
         robots
     }
 }
@@ -1002,17 +950,17 @@ fn no_of_killer_robots(level: i32) -> i32 {
     if level < 9 {
         0
     } else {
-        let mut robots = 1 + ((level - 10) * 2) + 1;
+        let robots = 1 + ((level - 10) * 2) + 1;
         robots
     }
 }
 
 // Generate level
 fn generate_level(
-    game_state: &Game_State,
+    gamestate: &GameState,
     game_board_data: &mut Vec<Vec<i32>>,
-    dumb_robots: &mut Vec<Dumb_Robot>,
-    junk_heaps: &mut Vec<Junk_Heap>,
+    dumb_robots: &mut Vec<DumbRobot>,
+    junk_heaps: &mut Vec<JunkHeap>,
     player: &mut Player,
 ) {
     let mut rng = rand::thread_rng();
@@ -1030,7 +978,7 @@ fn generate_level(
     junk_heaps.clear();
 
     // Add dumb robots.
-    for i in 0..no_of_dumb_robots(game_state.level) {
+    for _ in 0..no_of_dumb_robots(gamestate.level) {
         let mut occupied = true;
         let mut p_x = 0;
         let mut p_y = 0;
@@ -1044,11 +992,10 @@ fn generate_level(
             }
         }
 
-        dumb_robots.push(Dumb_Robot {
+        dumb_robots.push(DumbRobot {
             pos_x: p_x,
             pos_y: p_y,
             is_scrap: false,
-            id: i,
             kind: 1,
         });
         // Add the robot to the game board array
@@ -1056,7 +1003,7 @@ fn generate_level(
     }
 
     // Add super robots.
-    for i in 0..no_of_super_robots(game_state.level) {
+    for _ in 0..no_of_super_robots(gamestate.level) {
         let mut occupied = true;
         let mut p_x = 0;
         let mut p_y = 0;
@@ -1070,11 +1017,10 @@ fn generate_level(
             }
         }
 
-        dumb_robots.push(Dumb_Robot {
+        dumb_robots.push(DumbRobot {
             pos_x: p_x,
             pos_y: p_y,
             is_scrap: false,
-            id: i,
             kind: 2,
         });
         // Add the robot to the game board array
@@ -1082,7 +1028,7 @@ fn generate_level(
     }
 
     // Add killer robots.
-    for i in 0..no_of_killer_robots(game_state.level) {
+    for _ in 0..no_of_killer_robots(gamestate.level) {
         let mut occupied = true;
         let mut p_x = 0;
         let mut p_y = 0;
@@ -1096,11 +1042,10 @@ fn generate_level(
             }
         }
 
-        dumb_robots.push(Dumb_Robot {
+        dumb_robots.push(DumbRobot {
             pos_x: p_x,
             pos_y: p_y,
             is_scrap: false,
-            id: i,
             kind: 3,
         });
         // Add the robot to the game board array
