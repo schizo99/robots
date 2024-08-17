@@ -141,6 +141,7 @@ fn game_tick(
     // Check if we should bomb away
     if game_state.bomb_away {
         game_state.bomb_away = false;
+        player.bombs -= 1;
         // Here we should create a vector with all coordinates based on the player position in the following form
         // ..B..   Space two steps up
         // .BBB.   Space diagonal up and left, up and right, and up
