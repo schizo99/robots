@@ -260,6 +260,23 @@ fn game_tick(
                     continue;
                 }
 
+                // Check if the distance to player.x or player.y is less than 1
+                if (robot.pos_x - player.pos_x).abs() <= 1
+                    && (robot.pos_y - player.pos_y).abs() <= 1
+                {
+                    if player.invincible {
+                        robot.is_scrap = true;
+                        junk_heaps.push(JunkHeap {
+                            pos_x: robot.pos_x,
+                            pos_y: robot.pos_y,
+                        });
+                        player.score += 1;
+                        player.invincible = false;
+                    } else {
+                        player.is_alive = false;
+                    }
+                }
+
                 // The horse robot can move two steps forward and one to the side
                 let moves: Vec<(i32, i32)> = vec![
                     (2, 1),
@@ -303,8 +320,10 @@ fn game_tick(
                 }
 
                 // Move the robot to the shortest move
-                robot.pos_x += shortest_move.0;
-                robot.pos_y += shortest_move.1;
+                if player.is_alive {
+                    robot.pos_x += shortest_move.0;
+                    robot.pos_y += shortest_move.1;
+                }
 
                 if robot.pos_y == player.pos_y && robot.pos_x == player.pos_x {
                     if player.invincible {
