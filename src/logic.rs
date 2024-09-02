@@ -261,7 +261,9 @@ fn game_tick(
                 }
 
                 // Check if the distance to player.x or player.y is less than 1
-                if (robot.pos_x - player.pos_x).abs() <= 1 && (robot.pos_y - player.pos_y).abs() <= 1 {
+                if (robot.pos_x - player.pos_x).abs() <= 1
+                    && (robot.pos_y - player.pos_y).abs() <= 1
+                {
                     if player.invincible {
                         robot.is_scrap = true;
                         junk_heaps.push(JunkHeap {
