@@ -11,7 +11,7 @@
 /// The `JunkHeap` struct represents a junk heap in the game, with properties such as position.
 ///
 /// The `Args` struct is used for parsing command line arguments using the `clap` crate. It contains properties such as username, path, and show_highscore flag.
-use clap::Parser;
+use argh::FromArgs;
 
 pub const PADDING_LEFT: i32 = 3;
 pub const PADDING_TOP: i32 = 1;
@@ -60,18 +60,18 @@ pub struct JunkHeap {
     pub pos_y: i32,
 }
 
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[derive(FromArgs, Debug)]
+#[argh(description = "Command line arguments for the game")]
 pub struct Args {
-    /// Username
-    #[arg(short, long, default_value = "show_highscore")]
+    #[argh(option, short = 'u', default = "String::from(\"show_highscore\")")]
+    /// username
     pub username: String,
 
-    /// Path to highscore file
-    #[arg(short, long, default_value = "highscore.txt")]
+    #[argh(option, short = 'p', default = "String::from(\"highscore.txt\")")]
+    /// path
     pub path: String,
 
-    /// Show highscore
-    #[arg(short, long)]
+    #[argh(short = 's', switch)]
+    /// show highscore
     pub show_highscore: bool,
 }

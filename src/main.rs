@@ -4,10 +4,8 @@ mod logic;
 mod structs;
 
 use crate::logic::*;
-use crate::structs::*;
-use clap::Parser;
 
 fn main() {
-    let args = Args::parse();
+    let args = argh::from_env();
     run_game(&args);
 }
