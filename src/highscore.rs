@@ -4,7 +4,7 @@
 /// showing highscores, and handling highscore commands.
 ///
 use crate::structs::{Args, GameState, Player};
-use clap::CommandFactory;
+use argh::FromArgs;
 use crossterm::{
     cursor::{Hide, MoveTo, Show},
     event::read,
@@ -71,8 +71,10 @@ pub fn show_highscore(path: &str, player: &Player, gamestate: &GameState) {
 
 pub fn handle_highscore(args: &Args) {
     let username = &args.username;
+    //panic!("Username: {}", username);
     if username == "show_highscore" && !args.show_highscore {
-        Args::command().print_help().unwrap();
+        let arne = Args::from_args(&["--help"], &["--help"]);
+        println!("{}", arne.unwrap_err().output);
         std::process::exit(0);
     }
     let path = &args.path;
